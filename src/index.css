@@ -1,0 +1,58 @@
+/* Aspekta — free open-source (OFL) alternative to Aeonik.
+   If a licensed Aeonik is installed on the system it takes priority. */
+@font-face {
+  font-family: 'Aspekta';
+  src: url('/fonts/Aspekta-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Aspekta';
+  src: url('/fonts/Aspekta-500.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Aspekta';
+  src: url('/fonts/Aspekta-700.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --bg: #ffffff;
+  --ink: #0f172a;
+  --muted: #64748b;
+  --blue-900: #1e3a8a;
+  --blue-700: #1d4ed8;
+  --blue-600: #2563eb;
+  --blue-400: #60a5fa;
+  --blue-100: #dbeafe;
+  --blue-50: #eff6ff;
+  font-family: 'Aeonik', 'Aspekta', 'Segoe UI', system-ui, Helvetica, Arial,
+    sans-serif;
+  font-size: 17px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
