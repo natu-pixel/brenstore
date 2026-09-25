@@ -141,15 +141,6 @@ function Home() {
             <Suspense fallback={<div className="hero-embed-frame hero-embed-placeholder" role="status" aria-label="Loading the 3D model" />}>
               <ModelAvatar />
             </Suspense>
-            <p className="hero-embed-credit">
-              <a href="https://sketchfab.com/3d-models/female-cowgirl-v4-17950505a83d4c339fd276c6b3a8addc" target="_blank" rel="noreferrer">Female Cowgirl V4</a>
-              {' by '}
-              <a href="https://sketchfab.com/Fadly.W" target="_blank" rel="noreferrer">Fadly.W</a>
-              {' on '}
-              <a href="https://sketchfab.com" target="_blank" rel="noreferrer">Sketchfab</a>
-              {' · licensed '}
-              <a href="http://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">CC BY 4.0</a>
-            </p>
           </div>
         </div>
         <aside className="hero-side">
@@ -168,6 +159,10 @@ function Home() {
         </div>
         {settings.isError && <p role="alert">Telegram support information could not be loaded. <button className="auth-switch" onClick={() => void settings.refetch()}>Retry support information</button></p>}
       </section>
+      {/* CC BY 4.0 attribution for the hero model — required by the license; kept subtle in the page footer area */}
+      <p className="site-credit">
+        3D character: <a href="https://sketchfab.com/3d-models/female-cowgirl-v4-17950505a83d4c339fd276c6b3a8addc" target="_blank" rel="noreferrer">Female Cowgirl V4</a> by <a href="https://sketchfab.com/Fadly.W" target="_blank" rel="noreferrer">Fadly.W</a> · <a href="http://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">CC BY 4.0</a>
+      </p>
     </main>
   );
 }

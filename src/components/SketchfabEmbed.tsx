@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
-const SKETCHFAB_EMBED_SRC = 'https://sketchfab.com/models/17950505a83d4c339fd276c6b3a8addc/embed';
+// autostart=1 plays the model without the viewer's click-to-start button.
+const SKETCHFAB_EMBED_SRC = 'https://sketchfab.com/models/17950505a83d4c339fd276c6b3a8addc/embed?autostart=1&ui_stop=0&ui_hint=0';
 
 /**
  * Official Sketchfab iframe embed of the hero character. Used directly on

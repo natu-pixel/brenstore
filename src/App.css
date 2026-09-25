@@ -371,18 +371,21 @@
   }
 }
 
-/* Sketchfab embed terms require keeping the author/model attribution */
-.hero-embed-credit {
-  margin: 10px 4px 0;
-  font-size: 12px;
+/* CC BY 4.0 attribution for the hero model — subtle footer credit */
+.site-credit {
+  margin: 0;
+  padding: 18px 16px 26px;
+  font-size: 11px;
   font-weight: 400;
-  color: var(--muted);
+  color: #a5b0c2;
   text-align: center;
+  opacity: 0.75;
 }
 
-.hero-embed-credit a {
-  color: #1caad9;
-  font-weight: 600;
+.site-credit a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: rgba(165, 176, 194, 0.5);
 }
 
 /* ============ products ============ */

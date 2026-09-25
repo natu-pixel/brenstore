@@ -284,7 +284,7 @@ Automated tests use an explicitly labelled provider fixture to verify sandbox is
 
 ## Hero 3D model
 
-The storefront hero renders the licensed 3D model **"Female Cowgirl V4" by Fadly.W, [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/)**, self-hosted from `public/models/cowgirl/female-cowgirl-v4.glb` (the 1k-texture GLB, ~6 MB). [ModelAvatar](src/components/ModelAvatar.tsx) draws it with three.js in a lazy-loaded chunk: studio lighting, soft floor shadow, cursor tracking, and an idle bob/breathing loop (the source model ships no animations). Attribution requires crediting the author — the credit line under the hero model satisfies CC BY 4.0 and must not be removed.
+The storefront hero renders the licensed 3D model **"Female Cowgirl V4" by Fadly.W, [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/)**, self-hosted from `public/models/cowgirl/female-cowgirl-v4.glb` (the 1k-texture GLB, ~6 MB). [ModelAvatar](src/components/ModelAvatar.tsx) draws it with three.js in a lazy-loaded chunk: studio lighting, soft floor shadow, cursor tracking, and an idle bob/breathing loop (the source model ships no animations). Attribution requires crediting the author — the subtle credit line at the bottom of the storefront page satisfies CC BY 4.0 and must not be removed.
 
 If the GLB is missing, fails to load, or WebGL is unavailable, the hero falls back to the model's official Sketchfab iframe embed ([SketchfabEmbed](src/components/SketchfabEmbed.tsx)), which mounts after first paint so the third-party viewer never blocks page load. In the fallback case, sketchfab.com viewer resources load on the storefront — include Sketchfab in the store's privacy disclosures before launch. The hero text and actions remain fully usable if both fail.
 
