@@ -1,15 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import SketchfabEmbed from './SketchfabEmbed';
 
 /**
  * Self-hosted hero character ("Female Cowgirl V4" by Fadly.W, CC BY 4.0).
  * Renders the licensed GLB with studio lighting, a soft floor shadow, cursor
- * tracking and an idle bob/breathing loop. Falls back to the official
- * Sketchfab embed when WebGL or the model file is unavailable.
+ * tracking and an idle bob/breathing loop. Devices without usable WebGL (or a
+ * failed model load) get a rendered poster image with a gentle float instead —
+ * third-party embeds crash on the same devices, so we never fall back to one.
  */
 const MODEL_URL = '/models/cowgirl/female-cowgirl-v4.glb';
+const POSTER_URL = '/models/cowgirl/poster.jpg';
+
+function PosterFallback() {
+  return (
+    <div className="hero-model-canvas hero-model-poster" role="img" aria-label="Shop character illustration">
+      <img src={POSTER_URL} alt="" />
+    </div>
+  );
+}
 
 export default function ModelAvatar() {
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -113,7 +122,9 @@ export default function ModelAvatar() {
 
     const timer = new THREE.Timer();
     let raf = 0;
+    let renderErrors = 0;
     const tick = () => {
+      if (disposed) return;
       raf = requestAnimationFrame(tick);
       if (document.hidden) return;
       timer.update();
@@ -129,7 +140,15 @@ export default function ModelAvatar() {
       const breath = 1 + Math.sin(t * 2.1) * 0.005;
       rig.scale.setScalar(breath);
 
-      renderer.render(scene, camera);
+      try {
+        renderer.render(scene, camera);
+        renderErrors = 0;
+      } catch (error) {
+        // Rendering can crash on weak/blocked GPUs even after a context was created.
+        renderErrors += 1;
+        console.error('Hero model render failed', error);
+        if (renderErrors >= 3) setFailed(true);
+      }
     };
     tick();
 
@@ -154,6 +173,6 @@ export default function ModelAvatar() {
     };
   }, []);
 
-  if (failed) return <SketchfabEmbed />;
+  if (failed) return <PosterFallback />;
   return <div className="hero-model-canvas" ref={wrapRef} role="img" aria-label="Animated 3D shop character" />;
 }
