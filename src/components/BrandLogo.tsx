@@ -1,18 +1,16 @@
-import { LOGOS } from '../data/logos';
-import type { Product } from '../data/products';
+import { resolveService } from '../data/logos';
+import type { Plan } from '../features/api';
 
-/**
- * Brand tile: real logo (white on brand gradient) when available,
- * initial letter otherwise.
- */
 export default function BrandLogo({
   product,
   size = 52,
 }: {
-  product: Product;
+  product: Pick<Plan, 'brand_key' | 'name' | 'color_start' | 'color_end' | 'initial'>;
   size?: number;
 }) {
-  const path = LOGOS[product.id];
+  const service = resolveService(product.brand_key, product.name);
+  const path = service?.icon?.path;
+  const colors = !product.brand_key.trim() && service ? service : product;
   return (
     <span
       className="brand-tile"
@@ -20,7 +18,7 @@ export default function BrandLogo({
         width: size,
         height: size,
         fontSize: size * 0.46,
-        background: `linear-gradient(135deg, ${product.tile[0]}, ${product.tile[1]})`,
+        background: `linear-gradient(135deg, ${colors.color_start}, ${colors.color_end})`,
       }}
       title={product.name}
     >
@@ -29,7 +27,7 @@ export default function BrandLogo({
           viewBox="0 0 24 24"
           width={size * 0.55}
           height={size * 0.55}
-          fill="#fff"
+          fill={service?.logoColor ?? '#fff'}
           aria-hidden="true"
         >
           <path d={path} />

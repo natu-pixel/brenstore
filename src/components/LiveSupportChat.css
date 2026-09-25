@@ -1,0 +1,72 @@
+.support-chat-launcher {
+  position: fixed;
+  right: 24px;
+  bottom: max(24px, env(safe-area-inset-bottom));
+  z-index: 35;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 46px;
+  padding: 10px 16px;
+  border: 2px solid var(--ink);
+  border-radius: 24px;
+  background: var(--blue-600);
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-family: inherit;
+  box-shadow: 0 3px 0 var(--ink);
+  cursor: pointer;
+}
+.support-chat-launcher:hover { background: var(--blue-700); }
+.support-chat-dialog {
+  position: fixed;
+  inset: auto 16px 16px auto;
+  margin: 0;
+  padding: 0;
+  width: min(420px, calc(100vw - 32px));
+  height: min(700px, calc(100dvh - 32px));
+  max-width: none;
+  max-height: none;
+  border: 1px solid #cbd5e1;
+  border-radius: 18px;
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 20px 60px rgb(15 23 42 / 22%);
+}
+.support-chat-dialog[open] { display: flex; flex-direction: column; }
+.support-chat-dialog::backdrop { background: rgb(15 23 42 / 30%); }
+.support-chat-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+  padding: 14px 16px;
+  border-bottom: 1px solid #e2e8f0;
+}
+.support-chat-heading h2 { margin: 0; font-size: 1rem; }
+.support-chat-heading p { margin: 4px 0 0; font-size: 0.72rem; color: var(--muted); }
+.support-chat-close {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 10px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.support-chat-close:hover { background: var(--blue-50); }
+.support-chat-frame { width: 100%; min-height: 0; flex: 1; border: 0; background: #f8fafc; }
+.support-chat-notice { flex-shrink: 0; margin: 0; padding: 12px 16px; font-size: 0.8rem; background: var(--blue-50); }
+.support-chat-notice p { margin: 0 0 6px; }
+.support-chat-footer { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; padding: 12px 16px; border-top: 1px solid #e2e8f0; font-size: 0.7rem; color: var(--muted); }
+.support-chat-footer a { display: inline-flex; align-items: center; gap: 5px; color: var(--blue-700); font-weight: 500; }
+.store-support-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+@media (max-width: 480px) {
+  .support-chat-launcher { right: 12px; bottom: max(12px, env(safe-area-inset-bottom)); }
+  .support-chat-dialog { inset: auto 12px 12px auto; width: calc(100vw - 24px); height: calc(100dvh - 24px); }
+}

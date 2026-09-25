@@ -1,0 +1,120 @@
+-- LOCAL TEST DATABASE ONLY. Never run this against a hosted/shared production project.
+-- Run as postgres after all test clients have stopped. Replace only the three UUID arrays.
+-- psql -v ON_ERROR_STOP=1 ... -f cleanup-local-fixtures.sql.example
+-- This is intentionally not a .sql test: ordinary pgTAP discovery must not execute cleanup.
+-- Capture/restore any changed bren_settings values separately; this script never changes settings.
+begin;
+do $cleanup$
+declare
+  fixture_users uuid[] := array[]::uuid[];
+  fixture_plans uuid[] := array[]::uuid[];
+  fixture_categories uuid[] := array[]::uuid[];
+  fixture_orders uuid[];
+  fixture_allocations uuid[];
+  fixture_entities uuid[];
+begin
+  if current_user <> 'postgres' then
+    raise exception 'Local fixture cleanup must run as postgres.';
+  end if;
+  if cardinality(fixture_users) = 0
+    or array_position(fixture_users, null) is not null
+    or array_position(fixture_plans, null) is not null
+    or array_position(fixture_categories, null) is not null then
+    raise exception 'Supply exact, non-null fixture Auth UUIDs and all associated plan/category UUIDs.';
+  end if;
+
+  perform pg_advisory_xact_lock(73190523001);
+  perform pg_advisory_xact_lock(73190523002);
+  -- Transactional locks ensure no other client can observe or exploit temporarily disabled guards.
+  lock table
+    bren_private.bren_staff,
+    bren_private.bren_categories,
+    bren_private.bren_plans,
+    bren_private.bren_orders,
+    bren_private.bren_order_items,
+    bren_private.bren_payments,
+    bren_private.bren_allocations,
+    bren_private.bren_movements,
+    bren_private.bren_order_events,
+    bren_private.bren_customer_notes,
+    bren_private.bren_activity,
+    bren_private.bren_profiles
+  in access exclusive mode;
+
+  select coalesce(array_agg(id), array[]::uuid[]) into fixture_orders
+    from bren_private.bren_orders where customer_id = any(fixture_users);
+  select coalesce(array_agg(id), array[]::uuid[]) into fixture_allocations
+    from bren_private.bren_allocations where order_id = any(fixture_orders);
+  fixture_entities := fixture_users || fixture_plans || fixture_categories || fixture_orders || fixture_allocations;
+
+  if exists (
+    select 1 from bren_private.bren_plans
+    where (category_id = any(fixture_categories) and not (id = any(fixture_plans)))
+      or (id = any(fixture_plans) and category_id is not null and not (category_id = any(fixture_categories)))
+  ) or exists (
+    select 1 from bren_private.bren_order_items
+    where (plan_id = any(fixture_plans) and not (order_id = any(fixture_orders)))
+      or (order_id = any(fixture_orders) and not (plan_id = any(fixture_plans)))
+  ) then
+    raise exception 'Fixture catalog/order UUIDs are incomplete or reference unlisted data; nothing was removed.';
+  end if;
+
+  if exists (
+    select 1 from bren_private.bren_staff where invited_by = any(fixture_users) and not (id = any(fixture_users))
+  ) or exists (
+    select 1 from bren_private.bren_payments
+      where confirmed_by = any(fixture_users) and not (order_id = any(fixture_orders))
+  ) or exists (
+    select 1 from bren_private.bren_allocations
+      where released_by = any(fixture_users) and not (order_id = any(fixture_orders))
+  ) or exists (
+    select 1 from bren_private.bren_movements
+      where actor_id = any(fixture_users) and not (plan_id = any(fixture_plans))
+  ) or exists (
+    select 1 from bren_private.bren_order_events
+      where actor_id = any(fixture_users) and not (order_id = any(fixture_orders))
+  ) or exists (
+    select 1 from bren_private.bren_customer_notes
+      where actor_id = any(fixture_users) and not (customer_id = any(fixture_users))
+  ) or exists (
+    select 1 from bren_private.bren_activity where actor_id = any(fixture_users)
+      and entity_id is not null and not (entity_id = any(fixture_entities))
+  ) then
+    raise exception 'Fixture staff acted on unlisted entities; refusing cleanup of unrelated history.';
+  end if;
+
+  alter table bren_private.bren_order_items disable trigger bren_items_immutable;
+  alter table bren_private.bren_payments disable trigger bren_payments_immutable;
+  alter table bren_private.bren_movements disable trigger bren_movements_immutable;
+  alter table bren_private.bren_order_events disable trigger bren_events_immutable;
+  alter table bren_private.bren_customer_notes disable trigger bren_notes_immutable;
+  alter table bren_private.bren_activity disable trigger bren_activity_immutable;
+  alter table bren_private.bren_staff disable trigger bren_staff_guard;
+
+  delete from bren_private.bren_movements where plan_id = any(fixture_plans);
+  delete from bren_private.bren_customer_notes where customer_id = any(fixture_users);
+  delete from bren_private.bren_order_events where order_id = any(fixture_orders);
+  delete from bren_private.bren_payments where order_id = any(fixture_orders);
+  delete from bren_private.bren_allocations where id = any(fixture_allocations);
+  delete from bren_private.bren_order_items where order_id = any(fixture_orders);
+  delete from bren_private.bren_orders where id = any(fixture_orders);
+  delete from bren_private.bren_activity where actor_id = any(fixture_users) or entity_id = any(fixture_entities);
+  delete from bren_private.bren_staff where id = any(fixture_users);
+  delete from bren_private.bren_plans where id = any(fixture_plans);
+  delete from bren_private.bren_categories where id = any(fixture_categories);
+  delete from bren_private.bren_profiles where id = any(fixture_users);
+  delete from auth.users where id = any(fixture_users);
+
+  alter table bren_private.bren_order_items enable trigger bren_items_immutable;
+  alter table bren_private.bren_payments enable trigger bren_payments_immutable;
+  alter table bren_private.bren_movements enable trigger bren_movements_immutable;
+  alter table bren_private.bren_order_events enable trigger bren_events_immutable;
+  alter table bren_private.bren_customer_notes enable trigger bren_notes_immutable;
+  alter table bren_private.bren_activity enable trigger bren_activity_immutable;
+  alter table bren_private.bren_staff enable trigger bren_staff_guard;
+
+  raise notice 'Removed only listed local fixtures: % users, % plans, % categories, % derived orders.',
+    cardinality(fixture_users), cardinality(fixture_plans), cardinality(fixture_categories), cardinality(fixture_orders);
+end;
+$cleanup$;
+commit;

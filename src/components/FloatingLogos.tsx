@@ -1,5 +1,5 @@
 import BrandLogo from './BrandLogo';
-import { PRODUCTS } from '../data/products';
+import { useResource } from '../features/api';
 
 interface FloatCfg {
   id: string;
@@ -9,7 +9,6 @@ interface FloatCfg {
   duration: number; // s
 }
 
-/** All floats use brands with real logos available. */
 const FLOATS: FloatCfg[] = [
   { id: 'netflix', left: 4, size: 52, delay: 0, duration: 11 },
   { id: 'spotify', left: 88, size: 56, delay: 2.2, duration: 12.5 },
@@ -22,10 +21,11 @@ const FLOATS: FloatCfg[] = [
 ];
 
 export default function FloatingLogos() {
+  const catalog = useResource('catalog');
   return (
     <div className="float-layer" aria-hidden="true">
-      {FLOATS.map((f) => {
-        const p = PRODUCTS.find((x) => x.id === f.id);
+      {FLOATS.map((f, index) => {
+        const p = catalog.data?.[index];
         if (!p) return null;
         return (
           <span
