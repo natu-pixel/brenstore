@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { IconBolt, IconFlame, IconLayoutGrid, IconSearch, IconShoppingCart, IconSparkles, IconUsers, IconX } from '@tabler/icons-react';
+import { IconFlame, IconLayoutGrid, IconSearch, IconShoppingCart, IconSparkles, IconX } from '@tabler/icons-react';
 import BrandLogo from './BrandLogo';
 import { useCart } from '../cart';
 import { formatMoney } from '../lib/money';
@@ -56,20 +56,37 @@ export default function Products() {
               const qty = lines.find((line) => line.product.id === plan.id)?.qty ?? 0;
               const unavailable = plan.status !== 'active' || price === null
                 || qty >= (plan.kind === 'topup' ? 9 : Math.min(9, plan.available ?? 0));
+              const seats = plan.available ?? 0;
+              const stock = plan.kind === 'topup'
+                ? { cls: 'in', label: 'Instant top-up' }
+                : seats <= 0
+                  ? { cls: 'out', label: 'Out of stock' }
+                  : seats <= plan.low_stock_threshold
+                    ? { cls: 'low', label: `${seats} left` }
+                    : { cls: 'in', label: `${seats} in stock` };
               return (
                 <article className="product-card" key={plan.id}>
                   {plan.featured && <span className="card-flag flag-hot"><IconFlame size={13} /> FEATURED</span>}
-                  <div className="card-top"><BrandLogo product={plan} />{save !== null && <span className="save-badge">-{save}%</span>}</div>
-                  <h3 className="card-name">{plan.name}</h3><p className="card-plan">{plan.description}</p>
-                  {plan.kind === 'topup' ? (
-                    <div className="card-seats"><span className="seat-dot" /><IconBolt size={16} />Instant top-up · player ID at checkout</div>
-                  ) : (
-                    <div className="card-seats"><span className={'seat-dot' + ((plan.available ?? 0) <= plan.low_stock_threshold ? ' seat-low' : '')} /><IconUsers size={16} />{(plan.available ?? 0) > 0 ? `${plan.available} seats available` : 'Currently sold out'}</div>
-                  )}
-                  <div className="card-bottom">
-                    <div className="card-price"><span className="price-now">{price === null ? 'Not priced' : formatMoney(price, currency)}</span><span className="price-per">{plan.kind === 'topup' ? 'one-time' : `/ ${billingLabel(plan.billing_days)}`}</span>{comparison !== null && price !== null && comparison > price && <span className="price-was">{formatMoney(comparison, currency)}</span>}</div>
-                    <button className="btn btn-cart" disabled={unavailable} title={unavailable ? 'Unavailable, or quantity limit reached' : 'Add to cart'} aria-label={`Add ${plan.name} to cart`} onClick={() => add(plan.id)}><IconShoppingCart size={20} /></button>
+                  <div className="card-media">
+                    <BrandLogo product={plan} />
+                    {save !== null && <span className="save-badge">-{save}%</span>}
                   </div>
+                  <div className="card-meta">
+                    <span className="card-category">{plan.category_name ?? 'Plan'}</span>
+                    <span className={`card-stock ${stock.cls}`}>{stock.label}</span>
+                  </div>
+                  <div className="card-body">
+                    <h3 className="card-name">{plan.name}</h3>
+                    <p className="card-plan">{plan.description}</p>
+                    <div className="card-price-row">
+                      <span className="price-now">{price === null ? 'Not priced' : formatMoney(price, currency)}</span>
+                      <span className="price-per">{plan.kind === 'topup' ? 'one-time' : `/ ${billingLabel(plan.billing_days)}`}</span>
+                      {comparison !== null && price !== null && comparison > price && <span className="price-was">{formatMoney(comparison, currency)}</span>}
+                    </div>
+                  </div>
+                  <button className="card-action" disabled={unavailable} title={unavailable ? 'Unavailable, or quantity limit reached' : 'Add to cart'} aria-label={`Add ${plan.name} to cart`} onClick={() => add(plan.id)}>
+                    {unavailable ? 'Out of stock' : <><IconShoppingCart size={18} /> Add to cart</>}
+                  </button>
                 </article>
               );
             })}

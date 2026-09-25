@@ -103,7 +103,7 @@ export function PlanEditor({ plan, onClose }: { plan?: Plan; onClose: () => void
       <h3>Fulfillment</h3><div className="admin-form-grid">
         <Field label="Product type" hint="Top-ups are delivered automatically by the provider after payment confirmation; subscriptions keep manual seat fulfillment."><select value={form.kind} onChange={event => update('kind', event.target.value as PlanKind)}>
           <option value="seat">Subscription seats</option><option value="topup">Game top-up</option></select></Field>
-        {form.kind === 'topup' && <Field label="Provider package" hint="Live from the top-up provider. The points cost is charged to the store balance on delivery; your sell prices are set below."><select required value={form.provider_package_id} onChange={event => update('provider_package_id', event.target.value)} disabled={packages.isPending || packages.isError}>
+        {form.kind === 'topup' && <Field label="Provider package" hint="Live from the provider — Free Fire only (diamonds, memberships, Booyah Pass). PUBG UC and other games cannot be auto-delivered; sell those as subscription/manual plans. Points cost is charged to the store balance; your sell prices are set below."><select required value={form.provider_package_id} onChange={event => update('provider_package_id', event.target.value)} disabled={packages.isPending || packages.isError}>
           <option value="">Choose a package…</option>
           {packages.data?.map(option => <option key={option.id} value={option.id}>#{option.id} · {option.name} · costs {option.cost_points} points</option>)}
           {form.provider_package_id && !packages.data?.some(option => option.id === form.provider_package_id) &&
