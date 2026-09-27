@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { integerInput, planForm, planInput, validSlug } from './validation';
+import { message } from './utils';
 
 const draft = () => ({ ...planForm(), name: 'Test plan', slug: 'test-plan', initial: 'T' });
 
@@ -65,5 +66,13 @@ describe('admin plan validation', () => {
     expect(() => planInput({ ...draft(), kind: 'topup', provider_package_id: '' })).toThrow('provider package');
     expect(() => planInput({ ...draft(), kind: 'topup', provider_package_id: 'abc' })).toThrow('provider package');
     expect(() => planInput({ ...draft(), kind: 'seat', provider_package_id: '6' })).toThrow('game top-up');
+  });
+  it('translates duplicate-key database errors into actionable guidance', () => {
+    expect(message(new Error('duplicate key value violates unique constraint "bren_plans_slug_key"'))).toMatch(/slug/i);
+    expect(message(new Error('duplicate key value violates unique constraint "bren_categories_slug_key"'))).toMatch(/categor/i);
+    expect(message(new Error('duplicate key value violates unique constraint "bren_payments_reference_unique"'))).toMatch(/payment reference/i);
+    expect(message(new Error('duplicate key value violates unique constraint "other_key"'))).toMatch(/already exists/i);
+    expect(message(new Error('plain failure'))).toBe('plain failure');
+    expect(message('nope')).toMatch(/went wrong/i);
   });
 });
