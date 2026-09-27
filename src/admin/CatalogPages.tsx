@@ -70,6 +70,10 @@ export function PlanEditor({ plan, onClose }: { plan?: Plan; onClose: () => void
     try {
       const input = planInput(form, plan?.id);
       if (form.status === 'active' && categories.data?.some(category => category.id === form.category_id && category.archived)) throw new Error('Choose an active category before publishing.');
+      // Pre-check slug uniqueness so the fix is obvious instead of a constraint error.
+      const existing = await readResource('plans', { query: input.slug as string, page_size: 100 });
+      const clash = existing.rows.find((row) => row.slug === input.slug && row.id !== plan?.id);
+      if (clash) throw new Error(`The slug "${input.slug}" is already used by "${clash.name}" (${clash.status}). Pick a different slug — slugs must be unique across all plans, including drafts and archived ones.`);
       if (plan && (form.status === 'archived' || (plan.status === 'active' && form.status !== 'active')) && plan.status !== form.status) {
         if (!window.confirm('Remove this plan from sale? Existing order history and allocations will be preserved.')) return;
       }
