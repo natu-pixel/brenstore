@@ -1,4 +1,4 @@
-import type { Input, Plan, PlanKind } from '../features/api';
+import type { Input, OptionCode, Plan, PlanKind } from '../features/api';
 import { parseMoney, priceInput } from '../lib/money';
 
 export type PlanForm = {
@@ -6,6 +6,7 @@ export type PlanForm = {
   initial: string; color_start: string; color_end: string; usd: string; etb: string;
   usdCompare: string; etbCompare: string; billing_days: string; status: Plan['status'];
   featured: boolean; low_stock_threshold: string; kind: PlanKind; provider_package_id: string;
+  service_id: string; option_code: OptionCode | ''; users_included: string;
 };
 
 export function planForm(plan?: Plan): PlanForm {
@@ -18,6 +19,8 @@ export function planForm(plan?: Plan): PlanForm {
     billing_days: String(plan?.billing_days ?? 30), status: plan?.status ?? 'draft',
     featured: plan?.featured ?? false, low_stock_threshold: String(plan?.low_stock_threshold ?? 0),
     kind: plan?.kind ?? 'seat', provider_package_id: plan?.provider_package_id ?? '',
+    service_id: plan?.service_id ?? '', option_code: plan?.option_code ?? '',
+    users_included: plan?.users_included == null ? '' : String(plan.users_included),
   };
 }
 
@@ -52,6 +55,12 @@ export function planInput(form: PlanForm, id?: string): Input {
   const providerPackage = form.provider_package_id.trim();
   if (kind === 'topup' && !/^[0-9]{1,10}$/.test(providerPackage)) throw new Error('Choose the provider package this top-up delivers.');
   if (kind === 'seat' && providerPackage) throw new Error('Provider packages are only valid for game top-up plans.');
+  if (form.service_id && kind !== 'seat') throw new Error('Unlink the subscription service before changing to a top-up.');
+  if (form.option_code && !form.service_id) throw new Error('Choose a service for this option.');
+  const included = form.users_included ? integerInput(form.users_included, 'Users included', 1, 1000) : null;
+  if (form.option_code && included === null) throw new Error('Enter the number of users included per purchase.');
+  if (!form.option_code && included !== null) throw new Error('Choose an option before setting users included.');
+  if (form.option_code === 'single_user' && included !== 1) throw new Error('The 1 user option must include exactly one user.');
   return {
     ...(id ? { id } : {}), name: form.name.trim(), slug: form.slug.trim(), description: form.description.trim(),
     category_id: form.category_id || null, brand_key: form.brand_key.trim(), initial: form.initial.trim(),
@@ -60,5 +69,6 @@ export function planInput(form: PlanForm, id?: string): Input {
     billing_days: integerInput(form.billing_days, 'Billing term', 1, 3650), status: form.status,
     featured: form.featured, low_stock_threshold: integerInput(form.low_stock_threshold, 'Low-stock threshold'),
     kind, provider_package_id: kind === 'topup' ? providerPackage : null,
+    service_id: form.service_id || null, option_code: form.option_code || null, users_included: included,
   };
 }

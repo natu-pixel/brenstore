@@ -262,3 +262,5 @@
   .admin-root .admin-sidebar { transition: none; }
   .admin-root .admin-spinner { animation: none; }
 }
+.admin-option-presets { margin: 12px 0 20px; }
+.admin-option-presets button + button { margin-left: 8px; }

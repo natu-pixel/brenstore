@@ -277,138 +277,115 @@
   position: relative;
   display: grid;
   place-items: center;
-  align-self: stretch;
+  width: 100%;
+  min-width: 0;
+  height: clamp(420px, 40vw, 510px);
+  isolation: isolate;
 }
 
-/* floating subscription logo tiles rising up around the avatar */
 .float-layer {
   position: absolute;
   inset: 0;
-  overflow: hidden;
+  z-index: 2;
   pointer-events: none;
 }
 
 .float-tile {
   position: absolute;
-  bottom: -70px;
   display: block;
-  opacity: 0;
-  animation-name: tile-rise;
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
-  will-change: transform, opacity;
+  transform: translate(-50%, -50%);
 }
 
 .float-tile .brand-tile {
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.22);
+  border: 2px solid #fff;
+  box-shadow: 0 10px 24px rgb(15 23 42 / 18%);
+  animation: logo-bob ease-in-out infinite;
+  animation-duration: inherit;
+  animation-delay: inherit;
 }
 
-@keyframes tile-rise {
-  0% {
-    transform: translateY(0) rotate(-6deg) scale(0.85);
-    opacity: 0;
-  }
-  12% {
-    opacity: 0.92;
-  }
-  50% {
-    transform: translateY(-46vh) rotate(4deg) scale(1);
-    opacity: 0.9;
-  }
-  88% {
-    opacity: 0.75;
-  }
-  100% {
-    transform: translateY(-92vh) rotate(-4deg) scale(0.9);
-    opacity: 0;
-  }
+@keyframes logo-bob {
+  0%, 100% { transform: translateY(5px) rotate(-5deg); }
+  50% { transform: translateY(-7px) rotate(5deg); }
 }
 
-/* ============ hero 3D model (Sketchfab embed) ============ */
-.hero-embed {
+.hero-avatar {
   position: relative;
-  width: min(480px, 92%);
-  justify-self: center;
-}
-
-.hero-embed-frame {
-  width: 100%;
-  aspect-ratio: 520 / 560;
-  border: 0;
-  border-radius: 24px;
-  display: block;
-  background: radial-gradient(circle at 50% 40%, #eef4ff 0%, #dbeafe 70%);
-  box-shadow: 0 26px 60px rgba(15, 23, 42, 0.16);
-}
-
-.hero-embed-placeholder {
-  animation: hero-embed-pulse 1.6s ease-in-out infinite;
-}
-
-/* self-hosted GLB viewer occupies the same hero box as the embed fallback */
-.hero-model-canvas {
-  width: 100%;
-  aspect-ratio: 520 / 560;
-  border-radius: 24px;
-  overflow: hidden;
-  background: radial-gradient(circle at 50% 40%, #eef4ff 0%, #dbeafe 70%);
-  box-shadow: 0 26px 60px rgba(15, 23, 42, 0.16);
-}
-
-.hero-model-canvas canvas {
-  width: 100% !important;
-  height: 100% !important;
-  display: block;
-}
-
-/* poster fallback for devices without usable WebGL — still gently alive */
-.hero-model-poster {
   display: grid;
   place-items: center;
-}
-
-.hero-model-poster img {
   width: 100%;
   height: 100%;
-  object-fit: contain;
-  animation: poster-float 6s ease-in-out infinite;
 }
 
-@keyframes poster-float {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
+.hero-avatar-halo {
+  position: absolute;
+  width: 88%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 1px solid #c7dcff;
+  background: radial-gradient(circle at 45% 30%, #fff 0%, #e5efff 55%, #c3dbff 100%);
+  box-shadow: 0 24px 50px rgb(37 99 235 / 10%), inset 0 0 0 16px rgb(255 255 255 / 45%);
 }
 
-@keyframes hero-embed-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.72;
-  }
+.hero-avatar-portrait {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 64%;
+  max-width: 270px;
 }
 
-/* CC BY 4.0 attribution for the hero model — subtle footer credit */
-.site-credit {
-  margin: 0;
-  padding: 18px 16px 26px;
-  font-size: 11px;
-  font-weight: 400;
-  color: #a5b0c2;
+.hero-avatar-art {
+  position: relative;
+  filter: drop-shadow(0 14px 12px rgb(70 44 19 / 16%));
+  transform-origin: 50% 85%;
+  animation: avatar-bob 7s ease-in-out infinite;
+}
+
+.hero-avatar-image, .hero-avatar-face, .hero-avatar-eyes { display: block; width: 100%; height: auto; }
+.hero-avatar-tracking { position: absolute; inset: 0; opacity: 0; pointer-events: none; }
+.hero-avatar-tracking.is-ready { opacity: 1; }
+.hero-avatar-glasses { position: absolute; inset: 0; display: block; width: 100%; height: 100%; pointer-events: none; }
+.hero-avatar-eyes {
+  position: absolute;
+  inset: 0;
+  transform: translate(var(--gaze-x, 0px), var(--gaze-y, 0px));
+  transition: transform 120ms ease-out;
+}
+.hero-avatar-motion-note { position: absolute; top: 100%; left: -10%; width: 120%; text-align: center; font-size: 0.75rem; color: var(--muted); }
+
+.hero-avatar-shadow {
+  position: absolute;
+  top: 81%;
+  width: 46%;
+  height: 16px;
+  border-radius: 50%;
+  background: rgb(42 67 112 / 15%);
+  filter: blur(8px);
+}
+
+.hero-avatar-error {
+  z-index: 1;
+  width: 65%;
+  padding: 16px;
   text-align: center;
-  opacity: 0.75;
+  border-radius: 16px;
+  background: #fff;
+  color: var(--ink);
 }
 
-.site-credit a {
-  color: inherit;
-  text-decoration: underline;
-  text-decoration-color: rgba(165, 176, 194, 0.5);
+.hero-avatar-error p { margin: 0 0 12px; }
+
+@keyframes avatar-bob {
+  0%, 100% { transform: translateY(3px) rotate(-1deg); }
+  50% {
+    transform: translateY(-5px) rotate(1deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-avatar-art, .float-tile .brand-tile { animation: none; }
+  .hero-avatar-eyes { transform: none; transition: none; }
 }
 
 /* ============ products ============ */
@@ -513,8 +490,8 @@
   position: relative;
   display: grid;
   place-items: center;
-  min-height: 168px;
-  padding: 22px;
+  min-height: 120px;
+  padding: 16px;
   background:
     radial-gradient(120% 90% at 50% 0%, rgba(255, 255, 255, 0.06), transparent 55%),
     linear-gradient(160deg, #20283a 0%, #141926 100%);
@@ -596,11 +573,13 @@
   background: rgba(239, 68, 68, 0.12);
 }
 
+.card-stock-warning { position: absolute; top: 10px; right: 10px; }
+
 .card-body {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 10px 18px 18px;
+  padding: 16px 18px 4px;
   flex: 1;
 }
 
@@ -632,8 +611,30 @@
   padding-top: 10px;
   display: flex;
   align-items: baseline;
+  flex-wrap: wrap;
   gap: 8px;
 }
+
+.plan-options { margin: 10px 0; }
+.plan-toggle-row { display: flex; align-items: center; justify-content: center; gap: 12px; }
+.plan-toggle-label { color: #a7b4ca; font-size: 0.85rem; }
+.plan-toggle-label.is-selected { color: #f8fafc; font-weight: 700; }
+.plan-toggle { display: grid; place-items: center; flex-shrink: 0; width: 60px; min-height: 44px; padding: 0; border: 0; border-radius: 999px; background: transparent; cursor: pointer; }
+.plan-toggle-track { display: block; width: 56px; height: 32px; padding: 3px; border: 1px solid #72819b; border-radius: 999px; background: #344155; transition: background-color 180ms ease; }
+.plan-toggle-thumb { display: block; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 2px 5px rgb(0 0 0 / 25%); transform: translateX(0); transition: transform 180ms ease; }
+.plan-toggle[aria-checked="true"] .plan-toggle-track { background: #2563eb; border-color: #93c5fd; }
+.plan-toggle[aria-checked="true"] .plan-toggle-thumb { transform: translateX(24px); }
+.plan-toggle:disabled { cursor: not-allowed; opacity: 0.45; }
+.plan-toggle-help { margin: 4px 0 10px; color: #a7b4ca; font-size: 0.75rem; line-height: 1.4; text-align: center; }
+@media (prefers-reduced-motion: reduce) {
+  .plan-toggle-track, .plan-toggle-thumb { transition: none; }
+}
+.card-details { margin-top: 6px; color: #b8c4d8; font-size: 0.8rem; line-height: 1.5; }
+.card-details summary { width: fit-content; min-height: 28px; cursor: pointer; color: #b8c4d8; }
+.card-details p { margin: 6px 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.card-plan-select { display: grid; gap: 6px; margin-bottom: 10px; color: #cbd5e1; font-size: 0.8rem; }
+.card-plan-select select { min-width: 0; width: 100%; padding: 9px; border: 1px solid #59677f; border-radius: 8px; background: #20283a; color: #f1f5f9; font: inherit; }
+.card-option-error { color: #fca5a5; font-size: 0.85rem; line-height: 1.5; }
 
 .price-now {
   font-size: 1.35rem;
@@ -1521,6 +1522,10 @@
 }
 
 .order-id {
+  display: inline-block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  vertical-align: middle;
   background: var(--blue-50);
   border: 1.5px solid var(--blue-100);
   border-radius: 8px;
@@ -1633,6 +1638,21 @@ dialog.cart-drawer::backdrop { background: rgb(15 23 42 / 40%); }
 .order-facts > div { display: flex; flex-wrap: wrap; gap: 16px; margin: 8px 0; }
 .order-facts dt { min-width: 90px; font-weight: 700; }
 .order-facts dd { margin: 0; text-transform: capitalize; }
+.order-progress { margin: 24px 0; text-align: left; }
+.order-progress h2 { margin-bottom: 10px; font-size: 1.2rem; }
+.order-progress p { line-height: 1.5; }
+.order-steps { list-style: none; padding: 0; margin: 16px 0; display: grid; gap: 10px; }
+.order-steps li { display: flex; gap: 12px; padding: 14px; border: 1px solid var(--blue-100); border-radius: 12px; }
+.order-steps li[aria-current="step"] { border: 2px solid var(--blue-700); }
+.order-step-number { flex-shrink: 0; display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid var(--blue-700); border-radius: 50%; color: var(--blue-700); font-weight: 700; }
+.order-steps .is-complete .order-step-number { background: var(--blue-700); color: #fff; }
+.order-steps strong, .order-steps small { display: block; }
+.order-steps small { margin-top: 3px; color: var(--muted); }
+.order-steps p { margin: 6px 0 0; }
+.order-refresh-note { margin-top: 20px; color: var(--muted); font-size: 0.85rem; line-height: 1.5; }
+.delivery-status .success-line { gap: 12px; flex-wrap: wrap; overflow-wrap: anywhere; }
+.success-summary .success-line > span { min-width: 0; overflow-wrap: anywhere; }
+.success-summary .success-line > b { flex-shrink: 0; }
 .order-term { display: block; margin-top: 4px; color: var(--muted); }
 .payment-instructions { white-space: pre-wrap; line-height: 1.6; overflow-wrap: anywhere; }
 .profile-panel { margin: 10px 0 28px; }
@@ -1705,6 +1725,9 @@ dialog.cart-drawer::backdrop { background: rgb(15 23 42 / 40%); }
   .hero-copy {
     align-items: center;
   }
+
+  .hero-visual { height: 400px; max-width: 440px; justify-self: center; }
+  .float-tile { transform: translate(-50%, -50%) scale(0.85); }
 
   .hero-side {
     flex-direction: column;

@@ -8,6 +8,22 @@ On phones and tablets (up to 1020px wide), the storefront header keeps its brand
 
 ## Operating model
 
+### Streaming service options
+
+The catalog relationship is **Category → Service → Plan option**. In **Admin > Services**, create a service (for example Netflix), open it, and add **1 user** or **On mail** options. Each option is an existing-style sellable plan with its own ID, prices, billing term and stock. To reuse a plan, open **Plans > Edit**, set its **Linked service**, **Purchase option**, and **Users included**. Do not recreate plans that already have orders.
+
+Grouping uses `service_id`; switching uses `option_code` (`single_user` / `on_mail`). Display names, descriptions and brand names are not relationship keys. Services own their category and card branding. Renaming a plan or service does not break the switch. A service may have multiple billing terms; only one non-archived plan per service/option/term is allowed. Standalone plans and game top-ups remain independent.
+
+**Users included** is the number of users in one purchase, not stock or quantity. An On mail package containing five users is quantity **1** and consumes **1** inventory unit. Inventory remains independent per plan; this does not introduce shared seat/account pools. Enter actual sellable package capacity in Inventory. The single-user option requires exactly one user.
+
+The card uses one sliding on/off switch: **off/left = 1 user**, **on/right = On mail**. Clicking, Space or Enter switches the selected plan's own price, currency, billing term, availability and cart ID. The switch cannot move to an unavailable option, and its help text explains why. It respects reduced-motion preferences. Multiple billing terms for an option use a billing-plan selector. Both options can be bought together as separate cart/order lines. New orders snapshot the service name, option and users included along with existing names/prices; later edits never rewrite those snapshots.
+
+Cards keep the default view compact: logo, service name, switch, price/billing term and purchase button. A collapsed **Details** disclosure contains the full selected plan name, description, availability and comparison price. Low-stock/out-of-stock and unavailable-option warnings remain visible. Repeated category/Featured labels, option explanations and redundant single-choice dropdowns do not occupy the main card.
+
+Apply `20261002000100_bren_services.sql` before releasing this admin UI. The additive migration preserves all plan IDs, prices, capacities, allocations and historical orders. Known streaming brands/exact service aliases are linked to service records. Only unambiguous exact names from the previous `Service - 1 user` / `Service - On mail` convention receive option codes; duplicate terms stay unclassified for staff review. Descriptions such as `on mail 5 users` are never parsed. Legacy On mail package sizes remain unknown until an administrator enters them.
+
+Unclassified linked plans remain purchasable, with a disabled switch until a classified option is selected. Missing options never create a purchase. Existing stored carts still load; a changed option/package size blocks checkout until the customer removes and re-adds that plan. Search/Featured filters match a service if any linked plan matches while retaining its other options.
+
 - Fresh deployments start with an empty catalog. Manage categories and plans in admin; migrations do not create demo inventory. The current hosted project's requested category setup is documented below.
 - Plans have separately maintained **USD and ETB prices** in integer minor units. No exchange-rate conversion is performed.
 - Checkout requires an authenticated customer. An order is successful only after the database persists it.
@@ -18,6 +34,14 @@ On phones and tablets (up to 1020px wide), the storefront header keeps its brand
 - **Game top-up plans** (currently Free Fire packages) are provider-delivered instead of seat-based. Checkout collects a numeric player ID per top-up line, and top-up and subscription plans never share one order. Confirming a verified payment queues one provider delivery per unit in the same transaction; the `bren-topup` Edge Function then places and polls the provider orders. An order fulfills automatically when every unit is delivered; failed units keep the order paid, refund their provider points to the store balance automatically, and can be retried from the order page after the cause is resolved.
 - Order snapshots remain unchanged when plans/prices change. USD and ETB reporting is separate. Provider package costs are shown to staff as reference points only; sell prices are the plan's own USD/ETB prices.
 - Telegram links carry a saved order reference. They do not implement or imply bot automation.
+
+### Customer order tracking
+
+The saved-order page separates **order saved**, **payment confirmed**, and **access/top-up delivered**. Pending orders never appear paid or fulfilled. Top-up progress counts delivered units against every purchased quantity; partial or failed delivery remains incomplete. Cancellation and failed delivery do not imply a customer refund or that a staff notification was sent.
+
+While visible, an open customer order refreshes from the authorized backend every five seconds. The current My Orders page also refreshes when it contains pending/paid orders. Polling stops for fulfilled/cancelled orders and in hidden tabs; existing focus refresh and manual refresh remain available. These are read-only checks, not payment confirmation or provider-delivery triggers.
+
+The detail page shows the last successful check. A failed background refresh preserves the last retrieved information with an explicit stale-data warning and a retry control; initial failures show an unavailable state, never a simulated order. Existing authentication, customer ownership checks and sign-out cache clearing remain unchanged.
 
 ### Roles
 
@@ -75,6 +99,8 @@ npx supabase db push
 ```
 
 ### Current hosted status
+
+On 2026-10-02, the additive `20261002000100_bren_services` migration was applied to the linked Brenstore project. All six migration versions match locally and remotely. Before/after integrity fingerprints matched for the existing plan fields, order items, orders, allocations and payments. The migration linked two known services; their existing ambiguous plans remain unclassified for explicit staff review. No new sellable options, prices or stock were invented.
 
 The authorized CLI deployment to **brenstore** (`gwdpxgezgztbvhiynaqp`, `eu-west-1`) covers the four initial migrations, the `bren-invite` Edge Function, the `20260924000100_bren_topup` migration (top-up plans, player-ID snapshots, per-unit delivery tracking and the service-role delivery workflow), and the `bren-topup` Edge Function with the `GTOPUP_API_KEY` secret set server-side. The existing project was inspected first: no application tables or migration history existed, and its single unconfirmed Auth account was preserved. No sample plans, orders or staff were created.
 
@@ -282,13 +308,17 @@ The dialog supports focus restoration, small screens, a slow-load notice, retrie
 
 Automated tests use an explicitly labelled provider fixture to verify sandbox isolation, referrer suppression, routing, sizing and keyboard behavior without sending messages. The real direct-chat and embed endpoints returned HTTP 200 in a server-side check, but Tawk's Cloudflare protection returned HTTP 403 for the embed in automated Chromium, including the original supplied snippet outside the app. End-to-end conversation delivery therefore remains unverified; check it in a normal browser and the Tawk dashboard. No test conversation was sent.
 
-## Hero 3D model
+## Hero avatar and floating logos
 
-The storefront hero renders the licensed 3D model **"Female Cowgirl V4" by Fadly.W, [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/)**, self-hosted from `public/models/cowgirl/female-cowgirl-v4.glb` (the 1k-texture GLB, ~6 MB). [ModelAvatar](src/components/ModelAvatar.tsx) draws it with three.js in a lazy-loaded chunk: studio lighting, soft floor shadow, cursor tracking, and an idle bob/breathing loop (the source model ships no animations). Attribution requires crediting the author — the subtle credit line at the bottom of the storefront page satisfies CC BY 4.0 and must not be removed.
+[HeroAvatar](src/components/HeroAvatar.tsx) displays the character image supplied for the store: [shop-avatar.png](public/images/shop-avatar.png). The source screenshot was cropped above the timestamp, its blue background removed, and the neck edge faded into transparency. The original attachment was not modified. This is an animated image avatar, not a reconstructed 3D model; it requires no WebGL or external image service. Failed image loads produce a visible message and retry control without hiding the store actions.
 
-If the GLB is missing, fails to load, or WebGL is unavailable/unstable (repeated render crashes), the hero falls back to a rendered poster (`public/models/cowgirl/poster.jpg`, ~12 KB) with a gentle float animation — no third-party viewer is ever embedded, so nothing external loads and nothing can crash the hero on weak devices. The hero text and actions remain fully usable regardless.
+[FloatingLogos](src/components/FloatingLogos.tsx) uses the existing bundled service-brand presets for Netflix, Spotify, YouTube, HBO Max, Apple Music, PlayStation, Duolingo and Crunchyroll. These decorative logos do not depend on catalog rows, do not link to products, and do not assert stock or availability. They remain visible from the first frame, move gently within fixed positions around the avatar, and are hidden from assistive technology. Both avatar and logo animation stop under `prefers-reduced-motion`.
 
-The earlier "Feng" model by Rumen Petrov "Gumbata" is **not** usable beyond the official embed (no license, downloads disabled — all rights reserved); it was replaced for that reason.
+The eyes follow mouse/pen movement anywhere on the page, independently of the face and glasses. Locally prepared face and pupil layers replace the static eyes only after both images load. Gaze updates are limited to one animation frame at a time, scale with the displayed portrait, and stay within the glasses. Leaving the window, losing focus, scrolling/resizing, hiding the tab, touch movement or enabling reduced motion returns the eyes to neutral. Listeners and pending frames are removed on unmount. If an eye layer fails, the original image remains visible with an explicit notice instead of showing an eyeless or double-eyed character.
+
+The portrait has a supersampled, antialiased silhouette to remove the screenshot's jagged cutout fringe. Raster glasses were removed from both face images and replaced by [AvatarGlasses](src/components/AvatarGlasses.tsx): SVG frames, bridge, temples and subtle lens/frame highlights. The vector layer shares the artwork's coordinate system, stays fixed over the moving eyes, remains present in the static fallback, and scales cleanly on high-density screens. The original low-resolution facial texture is preserved rather than claimed to be newly generated high-resolution detail.
+
+The former 3D model is no longer loaded or displayed. Its retained files under `public/models/cowgirl` are **"Female Cowgirl V4" by Fadly.W, [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/)** ([source](https://sketchfab.com/3d-models/female-cowgirl-v4-17950505a83d4c339fd276c6b3a8addc)). Preserve their attribution if reusing those assets; their license does not apply to the newly supplied avatar.
 
 ## Deployment
 

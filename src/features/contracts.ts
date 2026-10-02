@@ -13,6 +13,18 @@ export const categorySchema = z.object({
 });
 export const planKindSchema = z.enum(['seat', 'topup']);
 export type PlanKind = z.infer<typeof planKindSchema>;
+export const optionCodeSchema = z.enum(['single_user', 'on_mail']);
+export type OptionCode = z.infer<typeof optionCodeSchema>;
+export const serviceSchema = z.object({
+  id: z.string(), name: z.string(), slug: z.string(), category_id: z.string(), category_name: z.string(),
+  brand_key: z.string(), initial: z.string(), color_start: z.string(), color_end: z.string(),
+});
+export type Service = z.infer<typeof serviceSchema>;
+const optionSnapshot = {
+  service_name: z.string().nullable().optional(),
+  option_code: optionCodeSchema.nullable().optional(),
+  users_included: z.number().int().min(1).max(1000).nullable().optional(),
+};
 export const planSchema = z.object({
   id: z.string(), name: z.string(), slug: z.string(), description: z.string(),
   category_id: z.string().nullable(), category_name: z.string().nullable(),
@@ -23,6 +35,8 @@ export const planSchema = z.object({
   low_stock_threshold: z.number().int(), billing_days: z.number().int(),
   status: z.enum(['draft', 'active', 'archived']), featured: z.boolean(), updated_at: z.string(),
   kind: planKindSchema,
+  service_id: z.string().nullable().optional(),
+  ...optionSnapshot,
   // Staff-only; the public catalog response omits the key entirely.
   provider_package_id: z.string().nullable().optional(),
 });
@@ -43,6 +57,7 @@ const itemSchema = z.object({
   id: z.string(), plan_id: z.string(), name: z.string(), description: z.string(),
   qty: z.number().int().positive(), unit_minor: money, billing_days: z.number().int(),
   player_id: z.string().nullable(),
+  ...optionSnapshot,
 });
 export const deliveryStatusSchema = z.enum(['queued', 'processing', 'delivered', 'failed']);
 export type DeliveryStatus = z.infer<typeof deliveryStatusSchema>;
@@ -101,6 +116,7 @@ export const resourceSchemas = {
   public_categories: z.array(categorySchema),
   categories: paginated(categorySchema),
   plans: paginated(planSchema),
+  services: paginated(serviceSchema),
   inventory: paginated(planSchema),
   orders: paginated(orderSchema),
   my_orders: paginated(orderSchema),
@@ -131,7 +147,7 @@ export type Customer = z.infer<typeof customerSchema>;
 export type OrderDetail = z.infer<typeof orderDetailSchema>;
 export type Input = { [key: string]: Json | undefined };
 export type Action =
-  | 'save_category' | 'save_plan' | 'adjust_capacity' | 'release_allocation'
+  | 'save_category' | 'save_service' | 'save_plan' | 'adjust_capacity' | 'release_allocation'
   | 'create_order' | 'confirm_payment' | 'fulfill_order' | 'cancel_order'
   | 'add_order_note' | 'add_customer_note' | 'save_profile' | 'update_staff' | 'save_settings';
 

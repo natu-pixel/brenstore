@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { currencySchema, planSchema, useResource } from './features/api';
 import type { Currency, Plan } from './features/api';
 import { planPrice } from './data/products';
+import { optionChanged } from './data/plan-options';
 
 export const CART_KEY = 'brenstore.cart.v1';
 export const MAX_QUANTITY = 9;
@@ -40,6 +41,7 @@ export function cartLine(item: StoredLine, catalog: Plan[] | undefined, currency
   else {
     if (current.kind !== 'topup' && (current.available ?? 0) < item.qty) errors.push(`Only ${current.available ?? 0} seats available. Reduce quantity or remove this plan.`);
     if (planPrice(current, currency) !== unitMinor) errors.push('The price has changed. Review and accept the current price.');
+    if (optionChanged(item.product, current)) errors.push('The purchase option has changed. Remove this plan and add it again to review the current package.');
   }
   if (unitMinor === null) errors.push(`This plan has no ${currency} price.`);
   else if (!Number.isSafeInteger(unitMinor * item.qty)) errors.push('This line total exceeds the supported amount. Reduce the quantity or remove this plan.');
@@ -59,6 +61,7 @@ export function addCartItem(state: CartState, plan: Plan): CartState {
       : 'Subscription plans are ordered separately. Clear the game top-ups from your cart first.',
   );
   if (existing && planPrice(existing.product, state.currency) !== planPrice(plan, state.currency)) throw new Error('Review the changed price in your cart before adding more.');
+  if (existing && optionChanged(existing.product, plan)) throw new Error('The purchase option has changed. Remove this plan and add it again to review the current package.');
   const cap = plan.kind === 'topup' ? MAX_QUANTITY : Math.min(MAX_QUANTITY, plan.available ?? 0);
   if ((existing?.qty ?? 0) >= cap) throw new Error(plan.kind === 'topup'
     ? `You can add at most ${MAX_QUANTITY} units per top-up plan.`

@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { UseQueryOptions } from '@tanstack/react-query';
 import { z } from 'zod';
 import { supabase, supabaseConfigurationError } from '../supabase';
 import { DatabaseError, resourceSchemas, roleSchema, topupPackageSchema, topupProcessSchema } from './contracts';
@@ -28,13 +29,18 @@ export async function getMyRole(): Promise<Role | null> {
   return roleSchema.nullable().parse(data);
 }
 
-export function useResource<R extends Resource>(resource: R, args: Input = {}, enabled = true) {
+export function useResource<R extends Resource>(
+  resource: R, args: Input = {}, enabled = true,
+  options: Pick<UseQueryOptions<ResourceData[R]>, 'refetchInterval'> = {},
+) {
   return useQuery({
     queryKey: ['bren', resource, args],
     queryFn: () => readResource(resource, args),
     enabled,
     staleTime: 15_000,
     refetchOnWindowFocus: 'always',
+    refetchInterval: options.refetchInterval,
+    refetchIntervalInBackground: false,
     retry: false,
   });
 }

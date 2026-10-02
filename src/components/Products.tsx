@@ -1,23 +1,22 @@
 import { useState } from 'react';
 import { IconFlame, IconLayoutGrid, IconSearch, IconShoppingCart, IconSparkles, IconX } from '@tabler/icons-react';
-import BrandLogo from './BrandLogo';
+import ProductCard from './ProductCard';
 import { useCart } from '../cart';
-import { formatMoney } from '../lib/money';
-import { billingLabel, comparePrice, planPrice } from '../data/products';
+import { groupPlans, optionSummary } from '../data/plan-options';
 import { useResource } from '../features/api';
 import type { Currency } from '../features/api';
 
 export default function Products() {
   const [active, setActive] = useState('all');
   const [query, setQuery] = useState('');
-  const { add, currency, setCurrency, lines } = useCart();
+  const { currency, setCurrency } = useCart();
   const catalog = useResource('catalog');
   const categories = useResource('public_categories');
   const q = query.trim().toLowerCase();
-  const shown = (catalog.data ?? []).filter((plan) => {
+  const shown = groupPlans(catalog.data ?? []).filter(group => group.plans.some(plan => {
     const matchesCategory = active === 'all' || (active === 'featured' ? plan.featured : plan.category_id === active);
-    return matchesCategory && (!q || [plan.name, plan.description, plan.category_name ?? ''].some((value) => value.toLowerCase().includes(q)));
-  });
+    return matchesCategory && (!q || [group.name, plan.name, plan.description, optionSummary(plan), plan.category_name ?? ''].some(value => value.toLowerCase().includes(q)));
+  }));
 
   return (
     <section className="products" id="products">
@@ -49,47 +48,7 @@ export default function Products() {
           <div className="no-results"><IconShoppingCart size={40} /><p>No plans are published yet.</p><span>Check back soon — new plans will appear here when available.</span></div>
         ) : <>
           <div className="product-grid">
-            {shown.map((plan) => {
-              const price = planPrice(plan, currency);
-              const comparison = comparePrice(plan, currency);
-              const save = price !== null && comparison !== null && comparison > price ? Math.round((1 - price / comparison) * 100) : null;
-              const qty = lines.find((line) => line.product.id === plan.id)?.qty ?? 0;
-              const unavailable = plan.status !== 'active' || price === null
-                || qty >= (plan.kind === 'topup' ? 9 : Math.min(9, plan.available ?? 0));
-              const seats = plan.available ?? 0;
-              const stock = plan.kind === 'topup'
-                ? { cls: 'in', label: 'Instant top-up' }
-                : seats <= 0
-                  ? { cls: 'out', label: 'Out of stock' }
-                  : seats <= plan.low_stock_threshold
-                    ? { cls: 'low', label: `${seats} left` }
-                    : { cls: 'in', label: `${seats} in stock` };
-              return (
-                <article className="product-card" key={plan.id}>
-                  {plan.featured && <span className="card-flag flag-hot"><IconFlame size={13} /> FEATURED</span>}
-                  <div className="card-media">
-                    <BrandLogo product={plan} />
-                    {save !== null && <span className="save-badge">-{save}%</span>}
-                  </div>
-                  <div className="card-meta">
-                    <span className="card-category">{plan.category_name ?? 'Plan'}</span>
-                    <span className={`card-stock ${stock.cls}`}>{stock.label}</span>
-                  </div>
-                  <div className="card-body">
-                    <h3 className="card-name">{plan.name}</h3>
-                    <p className="card-plan">{plan.description}</p>
-                    <div className="card-price-row">
-                      <span className="price-now">{price === null ? 'Not priced' : formatMoney(price, currency)}</span>
-                      <span className="price-per">{plan.kind === 'topup' ? 'one-time' : `/ ${billingLabel(plan.billing_days)}`}</span>
-                      {comparison !== null && price !== null && comparison > price && <span className="price-was">{formatMoney(comparison, currency)}</span>}
-                    </div>
-                  </div>
-                  <button className="card-action" disabled={unavailable} title={unavailable ? 'Unavailable, or quantity limit reached' : 'Add to cart'} aria-label={`Add ${plan.name} to cart`} onClick={() => add(plan.id)}>
-                    {unavailable ? 'Out of stock' : <><IconShoppingCart size={18} /> Add to cart</>}
-                  </button>
-                </article>
-              );
-            })}
+            {shown.map(group => <ProductCard group={group} key={group.id} />)}
           </div>
           {!shown.length && <div className="no-results"><IconSearch size={40} /><p>No plans match your filters.</p><button className="btn" onClick={() => { setQuery(''); setActive('all'); }}>Show all plans</button></div>}
         </>}

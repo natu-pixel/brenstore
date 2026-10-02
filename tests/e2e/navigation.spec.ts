@@ -30,6 +30,153 @@ async function signIn(page: Page) {
   await expect(page).toHaveURL('http://127.0.0.1:5175/');
 }
 
+test('supplied avatar and all floating brands remain visible with an empty catalog at every screen size', async ({ page }, info) => {
+  const modelRequests: string[] = [];
+  page.on('request', request => {
+    if (request.url().includes('/models/')) modelRequests.push(request.url());
+  });
+  await page.goto('/');
+  const visual = page.locator('.hero-visual');
+  const avatar = page.getByRole('img', { name: 'Brenstore character wearing round black glasses' });
+  await expect.poll(() => avatar.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth === 543)).toBe(true);
+  await expect(visual.locator('.float-tile')).toHaveCount(8);
+  for (const width of [320, 360, 768, 1440]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await visual.scrollIntoViewIfNeeded();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+    for (const time of [0, 3000, 6000]) {
+      await visual.evaluate((element, currentTime) => {
+        for (const animation of element.getAnimations({ subtree: true })) {
+          animation.pause();
+          animation.currentTime = currentTime;
+        }
+      }, time);
+      const bounds = await visual.boundingBox();
+      if (!bounds) throw new Error('Hero visual has no bounds.');
+      for (const name of ['Netflix', 'Spotify', 'YouTube Premium', 'HBO Max', 'Apple Music', 'PlayStation Plus', 'Duolingo', 'Crunchyroll']) {
+        const tile = visual.locator(`[title="${name}"]`);
+        await expect(tile).toBeVisible();
+        const box = await tile.boundingBox();
+        if (!box) throw new Error(`${name} is not visible.`);
+        expect(box.x).toBeGreaterThanOrEqual(bounds.x);
+        expect(box.y).toBeGreaterThanOrEqual(bounds.y);
+        expect(box.x + box.width).toBeLessThanOrEqual(bounds.x + bounds.width);
+        expect(box.y + box.height).toBeLessThanOrEqual(bounds.y + bounds.height);
+        expect(await tile.evaluate(element => getComputedStyle(element).opacity)).toBe('1');
+      }
+    }
+    await visual.screenshot({ path: info.outputPath(`hero-${width}.png`) });
+  }
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  for (const element of await visual.locator('.hero-avatar-art, .brand-tile').all()) {
+    expect(await element.evaluate(element => getComputedStyle(element).animationName)).toBe('none');
+  }
+  expect(modelRequests).toEqual([]);
+  await expect(visual.locator('canvas, iframe')).toHaveCount(0);
+});
+
+test('avatar eyes follow the mouse independently of the face and reset safely', async ({ page }, info) => {
+  await page.goto('/');
+  const portrait = page.locator('.hero-avatar-portrait');
+  const tracking = page.locator('.hero-avatar-tracking');
+  const eyes = page.locator('.hero-avatar-eyes');
+  await expect(tracking).toHaveClass(/is-ready/);
+  await portrait.evaluate(element => {
+    element.scrollIntoView({ block: 'center' });
+    for (const animation of element.getAnimations({ subtree: true })) {
+      animation.pause();
+      animation.currentTime = 0;
+    }
+  });
+  const bounds = await portrait.boundingBox();
+  const faceBefore = await page.locator('.hero-avatar-image').boundingBox();
+  const glassesBefore = await page.locator('.hero-avatar-glasses').boundingBox();
+  if (!bounds || !faceBefore) throw new Error('Avatar bounds unavailable.');
+  const eyeX = bounds.x + bounds.width * 288 / 543;
+  const eyeY = bounds.y + bounds.height * 159 / 636;
+  async function offset() {
+    return eyes.evaluate(element => {
+      const matrix = new DOMMatrixReadOnly(getComputedStyle(element).transform);
+      return { x: matrix.m41, y: matrix.m42 };
+    });
+  }
+  await page.mouse.move(eyeX + 320, eyeY);
+  await expect.poll(async () => (await offset()).x).toBeGreaterThan(5);
+  await page.locator('.hero-visual').screenshot({ path: info.outputPath('eyes-looking-right.png') });
+  await page.mouse.move(eyeX - 320, eyeY);
+  await expect.poll(async () => (await offset()).x).toBeLessThan(-5);
+  await page.locator('.hero-visual').screenshot({ path: info.outputPath('eyes-looking-left.png') });
+  await page.mouse.move(eyeX, eyeY - 160);
+  await expect.poll(async () => (await offset()).y).toBeLessThan(-1);
+  await page.mouse.move(eyeX, eyeY + 320);
+  await expect.poll(async () => (await offset()).y).toBeGreaterThan(3);
+  expect(Math.abs((await offset()).y)).toBeLessThanOrEqual(bounds.height * 12 / 636);
+  expect(await page.locator('.hero-avatar-image').boundingBox()).toEqual(faceBefore);
+  expect(await page.locator('.hero-avatar-glasses').boundingBox()).toEqual(glassesBefore);
+  await page.evaluate(() => window.dispatchEvent(new PointerEvent('pointerout', { relatedTarget: null })));
+  await expect.poll(offset).toEqual({ x: 0, y: 0 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.mouse.move(eyeX + 320, eyeY);
+  await expect.poll(offset).toEqual({ x: 0, y: 0 });
+});
+
+test.describe('high-density avatar artwork', () => {
+  test.use({ deviceScaleFactor: 2 });
+  test('vector glasses stay aligned with the polished face at mobile and desktop sizes', async ({ page }, info) => {
+    await page.goto('/');
+    await expect(page.locator('.hero-avatar-tracking')).toHaveClass(/is-ready/);
+    for (const width of [360, 1440]) {
+      await page.setViewportSize({ width, height: 1000 });
+      const visual = page.locator('.hero-visual');
+      await visual.evaluate(element => {
+        element.scrollIntoView({ block: 'center' });
+        for (const animation of element.getAnimations({ subtree: true })) {
+          animation.pause();
+          animation.currentTime = 0;
+        }
+      });
+      const glasses = page.locator('.hero-avatar-glasses');
+      await expect(glasses).toBeVisible();
+      expect(await glasses.boundingBox()).toEqual(await page.locator('.hero-avatar-image').boundingBox());
+      await expect(glasses.locator('path')).toHaveCount(5);
+      await expect(glasses.locator('image')).toHaveCount(0);
+      expect(await glasses.evaluate(element => getComputedStyle(element).pointerEvents)).toBe('none');
+      await visual.screenshot({ path: info.outputPath(`polished-avatar-${width}-2x.png`) });
+    }
+  });
+});
+
+test('failed eye texture leaves the original avatar visible instead of blank eyes', async ({ context, page }) => {
+  await context.route('**/images/shop-avatar-eyes.png', route => route.abort());
+  await page.goto('/');
+  await expect(page.getByRole('status').filter({ hasText: 'Eye animation unavailable.' })).toBeVisible();
+  const avatar = page.getByRole('img', { name: 'Brenstore character wearing round black glasses' });
+  await expect.poll(() => avatar.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth === 543)).toBe(true);
+  await expect(page.locator('.hero-avatar-tracking')).toHaveCount(0);
+  await expect(page.locator('.float-tile')).toHaveCount(8);
+});
+
+test('hero logos survive catalog errors and the avatar provides a working image retry', async ({ context, page }) => {
+  await context.route('**/rest/v1/rpc/bren_read', async route => {
+    if (route.request().postDataJSON()?.resource === 'catalog') {
+      await route.fulfill({ status: 503, json: { message: 'Catalog fixture unavailable' } });
+    } else await route.fallback();
+  });
+  const avatarUrl = '**/images/shop-avatar.png';
+  await context.route(avatarUrl, route => route.abort());
+  await page.goto('/');
+  await expect(page.getByRole('alert').filter({ hasText: 'The shop avatar could not be loaded.' })).toBeVisible();
+  await expect(page.locator('.float-tile')).toHaveCount(8);
+  await expect(page.locator('.float-layer [title="Netflix"]')).toBeVisible();
+  await expect(page.locator('.float-layer [title="Spotify"]')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Start', exact: true })).toBeVisible();
+  await context.unroute(avatarUrl);
+  await page.getByRole('button', { name: 'Retry avatar' }).click();
+  const avatar = page.getByRole('img', { name: 'Brenstore character wearing round black glasses' });
+  await expect.poll(() => avatar.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth === 543)).toBe(true);
+  await expect(page.getByRole('button', { name: 'Retry avatar' })).toHaveCount(0);
+});
+
 test('storefront navigation stays on one row on phones and exposes all account actions in its menu', async ({ page }, info) => {
   test.setTimeout(120_000);
   await signIn(page);

@@ -9,7 +9,7 @@ import type { Input } from '../../src/features/api';
 
 type DatabaseRole = 'anon' | 'authenticated' | 'service_role';
 
-export async function startTestDatabase() {
+export async function startTestDatabase(options: { beforeMigration?: (name: string, client: Client) => Promise<void> } = {}) {
   const listener = createServer();
   listener.listen(0, '127.0.0.1');
   await once(listener, 'listening');
@@ -60,6 +60,7 @@ export async function startTestDatabase() {
     const migrations = (await readdir(resolve('supabase', 'migrations'))).filter((name) => name.endsWith('.sql')).sort();
     if (!migrations.length) throw new Error('No database migration exists to validate.');
     for (const migration of migrations) {
+      await options.beforeMigration?.(migration, admin);
       await admin.query(await readFile(resolve('supabase', 'migrations', migration), 'utf8'));
     }
   } catch (error) {

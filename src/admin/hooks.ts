@@ -1,5 +1,28 @@
 import { createContext, useContext, useEffect, useId } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { readResource } from '../features/api';
+import type { Category } from '../features/api';
+
+export function useCategories() {
+  return useQuery({
+    queryKey: ['bren', 'category-options'],
+    queryFn: async () => {
+      const categories: Category[] = [];
+      let page = 1;
+      let total = 0;
+      do {
+        const result = await readResource('categories', { page, page_size: 100 });
+        categories.push(...result.rows);
+        total = result.total;
+        if (!result.rows.length) break;
+        page++;
+      } while (categories.length < total);
+      return categories;
+    },
+    retry: false,
+  });
+}
 
 export type DirtyState = { dirty: boolean; saving: boolean };
 export const DirtyContext = createContext<{

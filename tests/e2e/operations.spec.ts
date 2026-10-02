@@ -111,6 +111,8 @@ test('admin catalog edits, checkout and manual fulfillment persist in PostgreSQL
     expect(z.object({ total: z.number() }).parse(await database.read('my_orders', {}, customer.id)).total).toBe(1);
     await shop.reload();
     await expect(shop.getByRole('heading', { name: 'Saved Order' })).toBeVisible();
+    await expect(shop.getByRole('region', { name: 'Order progress' })).toContainText('Order saved, but payment is not yet confirmed.');
+    await shop.screenshot({ path: info.outputPath('customer-tracking-pending-desktop.png'), fullPage: true });
     const pending = orderDetailSchema.parse(await database.read('order', { id: orderId }, customer.id));
     expect(pending.order.currency).toBe('ETB');
     expect(pending.order.total_minor).toBe(85000);
@@ -127,6 +129,8 @@ test('admin catalog edits, checkout and manual fulfillment persist in PostgreSQL
     await paymentDialog.getByRole('button', { name: 'Confirm verified payment' }).click();
     await expect(paymentDialog).not.toBeVisible();
     await expect(page.getByText('MANUAL-BROWSER-001', { exact: true })).toBeVisible();
+    await expect(shop.getByRole('region', { name: 'Order progress' })).toContainText('Payment confirmed. Fulfillment is not yet complete.');
+    await expect(shop.getByRole('heading', { name: 'Payment instructions' })).not.toBeVisible();
     await page.getByRole('button', { name: 'Mark fulfilled', exact: true }).click();
     const fulfillment = page.getByRole('dialog', { name: 'Mark order fulfilled' });
     await fulfillment.getByRole('textbox').fill('Access delivered manually and checked with the customer.');
@@ -134,6 +138,10 @@ test('admin catalog edits, checkout and manual fulfillment persist in PostgreSQL
     await fulfillment.getByRole('button', { name: 'Mark fulfilled' }).click();
     await expect(fulfillment).not.toBeVisible();
     expect(orderDetailSchema.parse(await database.read('order', { id: orderId }, customer.id)).order.status).toBe('fulfilled');
+    await expect(shop.getByRole('region', { name: 'Order progress' })).toContainText('Fulfillment complete.');
+    await shop.setViewportSize({ width: 360, height: 800 });
+    expect(await shop.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+    await shop.screenshot({ path: info.outputPath('customer-tracking-fulfilled-mobile.png'), fullPage: true });
     await page.goto('/admin');
     await expect(page.getByRole('heading', { name: 'Confirmed payments' })).toBeVisible();
     await page.screenshot({ path: info.outputPath('admin-overview-desktop.png'), fullPage: true });

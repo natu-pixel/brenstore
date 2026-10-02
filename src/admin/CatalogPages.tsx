@@ -1,45 +1,58 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { IconPlus } from '@tabler/icons-react';
-import type { Category, Plan, PlanKind } from '../features/api';
+import type { Category, OptionCode, Plan, PlanKind, Service } from '../features/api';
 import { fetchTopupPackages, readResource, useCommand, useResource } from '../features/api';
 import { formatMoney } from '../lib/money';
 import BrandLogo from '../components/BrandLogo';
 import { resolveService, servicesForCategory, SERVICES } from '../data/logos';
+import { optionCodeSchema } from '../features/contracts';
+import { optionLabels, optionSummary } from '../data/plan-options';
 import { AsyncState, Badge, CheckField, Dialog, EmptyState, ErrorNotice, Field, FormFooter, PageHeading, Pagination, SearchBox, Table } from './shared';
-import { useListFilters } from './hooks';
+import { useCategories, useListFilters } from './hooks';
 import { integerInput, planForm, planInput, validSlug } from './validation';
 import type { PlanForm } from './validation';
 
-function useCategories() {
-  return useQuery({
-    queryKey: ['bren', 'category-options'],
-    queryFn: async () => {
-      const categories: Category[] = [];
-      let page = 1;
-      let total = 0;
-      do {
-        const result = await readResource('categories', { page, page_size: 100 });
-        categories.push(...result.rows);
-        total = result.total;
-        if (!result.rows.length) break;
-        page++;
-      } while (categories.length < total);
-      return categories;
-    },
-    retry: false,
+export function PlanEditor({ plan, service, option, onClose }: {
+  plan?: Plan; service?: Service; option?: OptionCode; onClose: () => void;
+}) {
+  const [initial] = useState<PlanForm>(() => {
+    const form = planForm(plan);
+    if (plan || !service) return form;
+    return {
+      ...form, service_id: service.id, category_id: service.category_id,
+      brand_key: service.brand_key, initial: service.initial, color_start: service.color_start, color_end: service.color_end,
+      name: `${service.name}${option ? ` - ${optionLabels[option]}` : ''}`,
+      slug: `${service.slug}${option ? `-${option === 'single_user' ? '1-user' : 'on-mail'}` : ''}`,
+      option_code: option ?? '', users_included: option === 'single_user' ? '1' : '',
+    };
   });
-}
-
-export function PlanEditor({ plan, onClose }: { plan?: Plan; onClose: () => void }) {
-  const [initial] = useState(() => planForm(plan));
   const [form, setForm] = useState(initial);
   const [error, setError] = useState<unknown>(null);
   const categories = useCategories();
   const command = useCommand();
   const category = categories.data?.find(item => item.id === form.category_id);
   const services = servicesForCategory(category?.slug);
+  const savedServices = useQuery({
+    queryKey: ['bren', 'service-options', form.category_id],
+    queryFn: async () => {
+      const rows: Service[] = [];
+      let page = 1;
+      let total = 0;
+      do {
+        const result = await readResource('services', { category_id: form.category_id, page, page_size: 100 });
+        rows.push(...result.rows);
+        total = result.total;
+        if (!result.rows.length) break;
+        page++;
+      } while (rows.length < total);
+      return rows;
+    },
+    enabled: Boolean(form.category_id) && form.kind === 'seat',
+    retry: false,
+  });
   const currentService = resolveService(form.brand_key, form.name);
   const dirty = JSON.stringify(form) !== JSON.stringify(initial);
   const update = <K extends keyof PlanForm>(key: K, value: PlanForm[K]) => setForm(previous => ({ ...previous, [key]: value }));
@@ -89,21 +102,50 @@ export function PlanEditor({ plan, onClose }: { plan?: Plan; onClose: () => void
       </div>
       <Field label="Description"><textarea rows={3} maxLength={4000} value={form.description} onChange={event => update('description', event.target.value)} /></Field>
       <div className="admin-form-grid">
-        <Field label="Category"><select value={form.category_id} onChange={event => update('category_id', event.target.value)} disabled={categories.isPending || Boolean(categories.error)}>
+        <Field label="Category"><select value={form.category_id} onChange={event => update('category_id', event.target.value)} disabled={Boolean(form.service_id) || categories.isPending || Boolean(categories.error)}>
           <option value="">Uncategorized</option>{categories.data?.map(category => <option key={category.id} value={category.id}>{category.name}{category.archived ? ' (archived)' : ''}</option>)}</select></Field>
-        <Field label="Service / brand" hint="Name and logo shortcuts only. No product, price or stock is created."><select value={form.brand_key} onChange={event => selectService(event.target.value)} disabled={!category || categories.isPending || Boolean(categories.error)}>
+        {!form.service_id && <Field label="Service / brand" hint="Branding only. Use the linked service below for real option relationships."><select value={form.brand_key} onChange={event => selectService(event.target.value)} disabled={!category || categories.isPending || Boolean(categories.error)}>
           <option value="">Automatic from exact plan name</option>
           <option value="custom">Custom service / fallback initial</option>
           {form.brand_key && form.brand_key !== 'custom' && !services.some(service => service.key === form.brand_key) &&
             <option value={form.brand_key}>{currentService?.name ?? form.brand_key} (current branding)</option>}
           {services.map(service => <option key={service.key} value={service.key}>{service.name}{service.icon ? '' : ' (initials only)'}</option>)}
-        </select></Field>
+        </select></Field>}
       </div>{categories.isPending && <p role="status">Loading categories…</p>}{categories.error && <ErrorNotice error={categories.error} retry={() => { void categories.refetch(); }} />}
       <div className="admin-brand-preview" aria-label="Brand preview">
         <BrandLogo product={form} size={48} />
         <div><strong>{currentService?.name ?? (form.name || 'Custom service')}</strong><p>{currentService?.icon ? 'Bundled brand logo' : 'Fallback initials; no bundled logo for this service.'}</p></div>
       </div>
-      <p className="admin-muted">Choose a category to see its service names. Selecting a service fills blank name/slug fields and applies its branding; custom names, prices and billing terms are kept. Changing category alone keeps existing branding.</p>
+      {form.kind === 'seat' && <>
+        <h3>Service relationship</h3>
+        <Field label="Linked service" hint="This database link controls the storefront card, not the plan name. Unlink first to change category.">
+          <select value={form.service_id} disabled={!form.category_id || savedServices.isPending || savedServices.isError}
+            onChange={event => {
+              const linked = savedServices.data?.find(item => item.id === event.target.value);
+              setForm(previous => ({
+                ...previous, service_id: linked?.id ?? '', option_code: '', users_included: '',
+                ...(linked ? { brand_key: linked.brand_key, initial: linked.initial, color_start: linked.color_start, color_end: linked.color_end } : {}),
+              }));
+            }}>
+            <option value="">Standalone plan (not grouped)</option>
+            {savedServices.data?.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+            {form.service_id && !savedServices.data?.some(item => item.id === form.service_id) &&
+              <option value={form.service_id}>Current service (loading or unavailable)</option>}
+          </select>
+        </Field>
+        {savedServices.isError && <ErrorNotice error={savedServices.error} retry={() => { void savedServices.refetch(); }} />}
+        <p className="admin-muted">Create and manage services under <Link to="/admin/services">Services</Link>. Each option keeps its own price, duration and inventory.</p>
+        {form.service_id && <div className="admin-form-grid">
+          <Field label="Purchase option"><select value={form.option_code} onChange={event => {
+            const code = event.target.value ? optionCodeSchema.parse(event.target.value) : '';
+            setForm(previous => ({ ...previous, option_code: code, users_included: code === 'single_user' ? '1' : '' }));
+          }}><option value="">Unclassified / legacy plan</option><option value="single_user">1 user</option><option value="on_mail">On mail</option></select></Field>
+          {form.option_code && <Field label="Users included" hint="Users in one purchase, not stock or cart quantity. Stock counts complete sellable units.">
+            <input required type="number" min={1} max={1000} step={1} readOnly={form.option_code === 'single_user'}
+              value={form.users_included} onChange={event => update('users_included', event.target.value)} />
+          </Field>}
+        </div>}
+      </>}
       <h3>Fulfillment</h3><div className="admin-form-grid">
         <Field label="Product type" hint="Top-ups are delivered automatically by the provider after payment confirmation; subscriptions keep manual seat fulfillment."><select value={form.kind} onChange={event => update('kind', event.target.value as PlanKind)}>
           <option value="seat">Subscription seats</option><option value="topup">Game top-up</option></select></Field>
@@ -123,12 +165,12 @@ export function PlanEditor({ plan, onClose }: { plan?: Plan; onClose: () => void
         <Field label="ETB price" hint="Up to two decimal places."><input inputMode="decimal" placeholder="0.00" value={form.etb} onChange={event => update('etb', event.target.value)} /></Field>
         <Field label="USD comparison price (optional)"><input inputMode="decimal" value={form.usdCompare} onChange={event => update('usdCompare', event.target.value)} /></Field>
         <Field label="ETB comparison price (optional)"><input inputMode="decimal" value={form.etbCompare} onChange={event => update('etbCompare', event.target.value)} /></Field>
-      </div><h3>Brand appearance</h3><div className="admin-form-grid">
+      </div>{!form.service_id && <><h3>Brand appearance</h3><div className="admin-form-grid">
         <Field label="Brand key (optional)" hint="Set by the service selector. Blank detects an exact known plan name; custom forces the fallback initial."><input maxLength={80} value={form.brand_key} onChange={event => update('brand_key', event.target.value)} /></Field>
         <Field label="Fallback initial"><input required maxLength={8} value={form.initial} onChange={event => update('initial', event.target.value)} /></Field>
         <Field label="Start color"><input type="color" value={form.color_start} onChange={event => update('color_start', event.target.value)} /></Field>
         <Field label="End color"><input type="color" value={form.color_end} onChange={event => update('color_end', event.target.value)} /></Field>
-      </div><h3>Availability and visibility</h3><div className="admin-form-grid">
+      </div></>}<h3>Availability and visibility</h3><div className="admin-form-grid">
         <Field label="Status"><select value={form.status} onChange={event => update('status', event.target.value as Plan['status'])}>
           <option value="draft">Draft</option><option value="active">Active / published</option><option value="archived">Archived</option></select></Field>
         {form.kind === 'seat' && <Field label="Low-stock threshold" hint="Capacity is managed separately in Inventory."><input type="number" min={0} max={1000000} step={1} required value={form.low_stock_threshold} onChange={event => update('low_stock_threshold', event.target.value)} /></Field>}
@@ -155,7 +197,8 @@ export function PlansPage() {
       <AsyncState pending={result.isPending} error={result.error} retry={() => { void result.refetch(); }}>
         {result.data && (result.data.rows.length ? <Table label="Subscription plans" columns={['Plan', 'Status', 'USD price', 'ETB price', 'Seats', 'Actions']}>
           {result.data.rows.map(plan => <tr key={plan.id}><td><div className="admin-plan-cell"><span className="admin-brand-initial" aria-hidden="true" style={{ background: `linear-gradient(135deg, ${plan.color_start}, ${plan.color_end})` }}>{plan.initial}</span>
-            <div><strong>{plan.name}</strong><small>{plan.category_name ?? 'Uncategorized'} · {plan.kind === 'topup' ? `top-up · package #${plan.provider_package_id ?? '?'}` : `${plan.billing_days} days`}{plan.featured ? ' · Featured' : ''}</small></div></div></td>
+            <div><strong>{plan.name}</strong><small>{plan.category_name ?? 'Uncategorized'} · {plan.kind === 'topup' ? `top-up · package #${plan.provider_package_id ?? '?'}` : `${plan.billing_days} days`}{plan.featured ? ' · Featured' : ''}</small>
+              {plan.service_id && <small><Link to={`/admin/services/${plan.service_id}`}>{plan.service_name}</Link> · {optionSummary(plan) || 'Needs option classification'}</small>}</div></div></td>
             <td><Badge value={plan.status} /></td><td className="admin-numeric">{plan.usd_minor === null ? 'Not set' : formatMoney(plan.usd_minor, 'USD')}</td>
             <td className="admin-numeric">{plan.etb_minor === null ? 'Not set' : formatMoney(plan.etb_minor, 'ETB')}</td><td className="admin-numeric">{plan.kind === 'topup' ? 'Provider-delivered' : `${plan.available} available / ${plan.capacity}`}</td>
             <td><button className="admin-button admin-button-small" aria-label={`Edit ${plan.name}`} onClick={() => setEditor(plan)}>Edit</button></td></tr>)}

@@ -5,6 +5,14 @@ import { message } from './utils';
 const draft = () => ({ ...planForm(), name: 'Test plan', slug: 'test-plan', initial: 'T' });
 
 describe('admin plan validation', () => {
+  it('validates real service options independently of display names and descriptions', () => {
+    const linked = { ...draft(), service_id: 'service', option_code: 'on_mail' as const, users_included: '5' };
+    expect(planInput(linked)).toMatchObject({ service_id: 'service', option_code: 'on_mail', users_included: 5 });
+    expect(() => planInput({ ...linked, users_included: '' })).toThrow('users included');
+    expect(() => planInput({ ...linked, service_id: '' })).toThrow('Choose a service');
+    expect(() => planInput({ ...linked, option_code: 'single_user' })).toThrow('exactly one');
+    expect(() => planInput({ ...linked, kind: 'topup', provider_package_id: '6' })).toThrow('Unlink');
+  });
   it('keeps independently entered USD and ETB amounts exact', () => {
     const input = planInput({ ...draft(), category_id: 'category-1', usd: '1.23', etb: '987.65', status: 'active' });
     expect(input).toMatchObject({ usd_minor: 123, etb_minor: 98765, status: 'active' });

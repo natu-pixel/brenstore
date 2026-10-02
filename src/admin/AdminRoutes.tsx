@@ -9,6 +9,7 @@ import DirtyProvider from './DirtyProvider';
 import { DirtyContext } from './hooks';
 import OverviewPage from './OverviewPage';
 import { CategoriesPage, PlansPage } from './CatalogPages';
+import { ServiceDetailPage, ServicesPage } from './ServicePages';
 import InventoryPage from './InventoryPage';
 import { OrderDetailPage, OrdersPage } from './OrderPages';
 import { CustomerDetailPage, CustomersPage } from './CustomerPages';
@@ -46,6 +47,7 @@ function AdminShell() {
   const links = [
     { path: '', label: 'Overview', icon: IconLayoutDashboard, visible: true },
     { path: 'plans', label: 'Plans', icon: IconBox, visible: managing },
+    { path: 'services', label: 'Services', icon: IconTag, visible: managing },
     { path: 'categories', label: 'Categories', icon: IconTag, visible: managing },
     { path: 'inventory', label: 'Seat inventory', icon: IconPackage, visible: managing },
     { path: 'orders', label: 'Orders', icon: IconShoppingBag, visible: true },
@@ -91,6 +93,8 @@ function AdminShell() {
         <Routes>
           <Route index element={<OverviewPage />} />
           <Route path="plans" element={<Guard level="manage"><PlansPage /></Guard>} />
+          <Route path="services" element={<Guard level="manage"><ServicesPage /></Guard>} />
+          <Route path="services/:id" element={<Guard level="manage"><ServiceDetailPage /></Guard>} />
           <Route path="categories" element={<Guard level="manage"><CategoriesPage /></Guard>} />
           <Route path="inventory" element={<Guard level="manage"><InventoryPage /></Guard>} />
           <Route path="orders" element={<OrdersPage />} />

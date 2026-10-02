@@ -4,6 +4,7 @@ import BrandLogo from './BrandLogo';
 import { useCart } from '../cart';
 import { formatMoney } from '../lib/money';
 import { planPrice } from '../data/products';
+import { optionChanged, optionSummary } from '../data/plan-options';
 import type { Currency } from '../features/api';
 
 export default function CartDrawer({ open, onClose, onCheckout }: { open: boolean; onClose: () => void; onCheckout: () => void }) {
@@ -40,13 +41,14 @@ export default function CartDrawer({ open, onClose, onCheckout }: { open: boolea
                 <BrandLogo product={plan} size={40} />
                 <div className="drawer-item-info">
                   <strong>{plan.name}</strong><span>{plan.description}</span>
+                  {plan.option_code && <span>{optionSummary(plan)}</span>}
                   <div className="qty-stepper">
                     <button onClick={() => setQty(plan.id, qty - 1)} aria-label={`Decrease ${plan.name} quantity`}><IconMinus size={14} /></button>
                     <b>{qty}</b>
                     <button disabled={!line.canIncrease} onClick={() => setQty(plan.id, qty + 1)} aria-label={`Increase ${plan.name} quantity`}><IconPlus size={14} /></button>
                   </div>
                   {line.errors.map((error) => <p key={error} className="cart-line-error" role="alert">{error}</p>)}
-                  {line.current && currentPrice !== null && currentPrice !== unitMinor && <button className="auth-switch" onClick={() => acceptPrice(plan.id)}>Accept {formatMoney(currentPrice, currency)} per seat</button>}
+                  {line.current && !optionChanged(plan, line.current) && currentPrice !== null && currentPrice !== unitMinor && <button className="auth-switch" onClick={() => acceptPrice(plan.id)}>Accept {formatMoney(currentPrice, currency)} per unit</button>}
                 </div>
                 <div className="drawer-item-side">
                   <span className="drawer-item-price">{unitMinor === null ? 'Unpriced' : Number.isSafeInteger(unitMinor * qty) ? formatMoney(unitMinor * qty, currency) : 'Review amount'}</span>

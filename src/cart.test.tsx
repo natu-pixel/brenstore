@@ -30,6 +30,14 @@ describe('persistent catalog-backed cart', () => {
   it('defaults to USD without invented catalog items', () => {
     expect(parseCart(null)).toEqual({ version: 1, currency: 'USD', items: [] });
   });
+  it('loads pre-relationship carts but requires review after option/package changes', () => {
+    expect(parseCart(JSON.stringify(state())).items[0].product.id).toBe(plan.id);
+    expect(cartLine(state().items[0], [{ ...plan, option_code: null, users_included: null }], 'USD').errors).toEqual([]);
+    const changed = { ...plan, service_id: 'service', option_code: 'on_mail' as const, users_included: 5 };
+    expect(cartLine(state().items[0], [changed], 'USD').errors.join()).toContain('purchase option has changed');
+    expect(() => addCartItem(state(), changed)).toThrow('purchase option has changed');
+    expect(addCartItem({ version: 1, currency: 'USD', items: [] }, changed).items[0].qty).toBe(1);
+  });
   it('uses independent minor-unit USD and ETB prices', () => {
     expect(cartLine(state().items[0], [plan], 'USD').unitMinor).toBe(499);
     expect(cartLine(state().items[0], [plan], 'ETB').unitMinor).toBe(71234);

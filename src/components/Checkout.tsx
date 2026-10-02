@@ -3,15 +3,18 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
-import { IconArrowLeft, IconBrandTelegram, IconChevronRight, IconCircleCheckFilled } from '@tabler/icons-react';
+import { IconArrowLeft, IconBrandTelegram, IconChevronRight } from '@tabler/icons-react';
 import BrandLogo from './BrandLogo';
+import OrderProgress from './OrderProgress';
 import { useCart } from '../cart';
 import { useAuth } from '../auth/AuthProvider';
 import { currencySchema, DatabaseError, readResource, runCommand, useCommand, useResource } from '../features/api';
 import type { OrderDetail } from '../features/api';
 import { formatMoney } from '../lib/money';
 import { safeTelegramUrl } from '../lib/telegram';
+import { isOpenOrder, orderRefreshInterval, orderStatusLabels, paymentStatusLabels } from '../lib/orders';
 import { planPrice } from '../data/products';
+import { optionChanged, optionSummary } from '../data/plan-options';
 
 export const playerIdPattern = /^[0-9]{6,20}$/;
 const orderItemInput = z.object({
@@ -209,6 +212,7 @@ export default function Checkout() {
           {cart.lines.map((line) => <li className="checkout-line" key={line.product.id}>
             <BrandLogo product={line.product} size={40} />
             <div className="checkout-line-info"><strong>{line.product.name}</strong><span>{line.qty} × {line.unitMinor === null ? 'Unpriced' : formatMoney(line.unitMinor, cart.currency)} · {line.product.kind === 'topup' ? 'one-time top-up' : `${line.product.billing_days} days`}</span>
+              {line.product.option_code && <span>{optionSummary(line.product)}</span>}
               {line.product.kind === 'topup' && <label className="auth-field checkout-player"><span>Free Fire player ID</span>
                 <input name={`player-${line.product.id}`} type="text" inputMode="numeric" autoComplete="off" required
                   minLength={6} maxLength={20} pattern="[0-9]{6,20}" placeholder="Numbers only, e.g. 2345678901"
@@ -218,7 +222,7 @@ export default function Checkout() {
                 <small>Delivery goes to this exact ID — double-check it before ordering.</small>
               </label>}
               {line.errors.map((problem) => <p className="cart-line-error" role="alert" key={problem}>{problem}</p>)}
-              {line.current && planPrice(line.current, cart.currency) !== null && planPrice(line.current, cart.currency) !== line.unitMinor && <button className="auth-switch" disabled={busy} onClick={() => cart.acceptPrice(line.product.id)}>Accept {formatMoney(planPrice(line.current, cart.currency)!, cart.currency)} per seat</button>}
+              {line.current && !optionChanged(line.product, line.current) && planPrice(line.current, cart.currency) !== null && planPrice(line.current, cart.currency) !== line.unitMinor && <button className="auth-switch" disabled={busy} onClick={() => cart.acceptPrice(line.product.id)}>Accept {formatMoney(planPrice(line.current, cart.currency)!, cart.currency)} per unit</button>}
               <div className="checkout-line-actions"><button className="auth-switch" disabled={busy} onClick={() => cart.setQty(line.product.id, line.qty - 1)}>Reduce quantity</button><button className="auth-switch" disabled={busy} onClick={() => cart.remove(line.product.id)}>Remove</button></div>
             </div>
             <b>{line.unitMinor === null ? '—' : Number.isSafeInteger(line.unitMinor * line.qty) ? formatMoney(line.unitMinor * line.qty, cart.currency) : 'Review amount'}</b>
@@ -241,25 +245,29 @@ const deliveryStatusLabels: Record<OrderDetail['deliveries'][number]['status'], 
   queued: 'Queued for delivery',
   processing: 'Delivering…',
   delivered: 'Delivered',
-  failed: 'Delivery issue — our team has been notified',
+  failed: 'Delivery issue — contact staff',
 };
 
 export function OrderPage() {
   const { id = '' } = useParams();
   const validId = z.string().uuid().safeParse(id).success;
-  const order = useResource('order', { id }, validId);
-  const instructions = useResource('payment_instructions');
+  const order = useResource('order', { id }, validId, {
+    refetchInterval: (query) => query.state.data && isOpenOrder(query.state.data.order) ? orderRefreshInterval : false,
+  });
+  const instructions = useResource('payment_instructions', {}, validId && Boolean(order.data));
   const detail = order.data;
   const telegram = safeTelegramUrl(instructions.data?.telegram_url, detail?.order.reference);
   const isTopup = Boolean(detail?.items.some((item) => item.player_id));
   return <section className="auth"><div className="auth-card checkout-card">
-    {!validId ? <p className="auth-error" role="alert">Invalid order link.</p> : order.isPending ? <p role="status">Loading your saved order…</p> : order.isError ? <><h1 className="auth-title">Order unavailable</h1><p className="auth-error" role="alert">{order.error.message}</p><button className="btn" onClick={() => void order.refetch()}>Retry order</button></> : detail && <>
-      <IconCircleCheckFilled size={56} className="success-icon" />
+    {!validId ? <p className="auth-error" role="alert">Invalid order link.</p> : order.isPending ? <p role="status">Loading your saved order…</p> : order.isError && !detail ? <><h1 className="auth-title">Order unavailable</h1><p className="auth-error" role="alert">{order.error.message}</p><button className="btn" disabled={order.isFetching} onClick={() => void order.refetch()}>Retry order</button></> : detail && <>
       <h1 className="auth-title">Saved Order</h1>
       <p className="auth-sub">Reference <code className="order-id">{detail.order.reference}</code></p>
-      <dl className="order-facts"><div><dt>Order status</dt><dd>{detail.order.status}</dd></div><div><dt>Payment</dt><dd>{detail.order.payment_status}</dd></div><div><dt>Placed</dt><dd>{new Date(detail.order.created_at).toLocaleString()}</dd></div></dl>
+      {order.isError && <p className="auth-error" role="alert">Could not refresh this order: {order.error.message} Showing the last saved status; it may be out of date. Retry using Refresh order status.</p>}
+      <dl className="order-facts"><div><dt>Order status</dt><dd>{orderStatusLabels[detail.order.status]}</dd></div><div><dt>Payment</dt><dd>{paymentStatusLabels[detail.order.payment_status]}</dd></div><div><dt>Placed</dt><dd>{new Date(detail.order.created_at).toLocaleString()}</dd></div></dl>
+      <OrderProgress detail={detail} />
       <div className="success-summary">
-        {detail.items.map((item) => <div className="success-line" key={item.id}><span>{item.qty} × {item.name}<small className="order-term">{item.player_id ? `Player ID ${item.player_id} · ${formatMoney(item.unit_minor, detail.order.currency)} each` : `${item.billing_days} days · ${formatMoney(item.unit_minor, detail.order.currency)} per seat`}</small></span><b>{formatMoney(item.unit_minor * item.qty, detail.order.currency)}</b></div>)}
+        {detail.items.map((item) => <div className="success-line" key={item.id}><span>{item.qty} × {item.name}<small className="order-term">{item.player_id ? `Player ID ${item.player_id} · ${formatMoney(item.unit_minor, detail.order.currency)} each` : `${item.billing_days} days · ${formatMoney(item.unit_minor, detail.order.currency)} per unit`}</small>
+          {item.option_code && <small className="order-term">{optionSummary(item)}</small>}</span><b>{formatMoney(item.unit_minor * item.qty, detail.order.currency)}</b></div>)}
         <div className="success-line success-total"><span>Total</span><b>{formatMoney(detail.order.total_minor, detail.order.currency)}</b></div>
       </div>
       {detail.deliveries.length > 0 && <div className="delivery-status" aria-label="Top-up delivery status">
@@ -270,7 +278,7 @@ export function OrderPage() {
             <b>{deliveryStatusLabels[delivery.status]}</b>
           </li>)}
         </ul>
-        {detail.deliveries.some((delivery) => delivery.status === 'failed') && <p className="store-notice">A delivery could not be completed. Staff has the details and will resolve or refund it — contact us with your order reference if needed.</p>}
+        {detail.deliveries.some((delivery) => delivery.status === 'failed') && <p className="store-notice">A delivery could not be completed. Contact staff with your order reference to arrange the next step. A failed delivery does not automatically refund your payment.</p>}
       </div>}
       <p>{detail.order.customer_name} · {detail.order.phone}{detail.order.telegram ? ` · ${detail.order.telegram}` : ''}</p>
       {detail.order.status === 'pending' && <>
@@ -282,6 +290,9 @@ export function OrderPage() {
       </>}
       {detail.payment && <p>Confirmed payment: {formatMoney(detail.payment.amount_minor, detail.payment.currency)} · Reference {detail.payment.reference}</p>}
       {telegram && <a className="btn auth-submit" href={telegram} target="_blank" rel="noreferrer"><IconBrandTelegram size={20} /> Contact staff with this reference</a>}
+      <p className="order-refresh-note">{isOpenOrder(detail.order) ? 'Status checks every 5 seconds while this page is visible.' : 'Automatic checks have stopped for this completed or cancelled order.'}
+        {order.dataUpdatedAt > 0 && <> Last successful check: <time dateTime={new Date(order.dataUpdatedAt).toISOString()}>{new Date(order.dataUpdatedAt).toLocaleTimeString()}</time>.</>}
+      </p>
       <button className="auth-guest" disabled={order.isFetching} onClick={() => void order.refetch()}>{order.isFetching ? 'Refreshing…' : 'Refresh order status'}</button>
     </>}
     <Link className="auth-guest" to="/orders">My orders</Link><Link className="auth-guest" to="/#products">Back to store</Link>
@@ -315,14 +326,18 @@ function CustomerProfile() {
 
 export function MyOrders() {
   const [page, setPage] = useState(1);
-  const orders = useResource('my_orders', { page, page_size: 10 });
+  const orders = useResource('my_orders', { page, page_size: 10 }, true, {
+    refetchInterval: (query) => query.state.data?.rows.some(isOpenOrder) ? orderRefreshInterval : false,
+  });
   return <section className="auth"><div className="auth-card checkout-card">
     <h1 className="auth-title">My Orders</h1>
     <CustomerProfile />
-    {orders.isPending ? <p role="status">Loading orders…</p> : orders.isError ? <><p className="auth-error" role="alert">Orders unavailable: {orders.error.message}</p><button className="btn" onClick={() => void orders.refetch()}>Retry orders</button></> : !orders.data.rows.length ? <p>No orders yet. <Link to="/#products">Find your first plan</Link>.</p> : <>
-      <ul className="customer-orders">{orders.data.rows.map((order) => <li key={order.id}><Link to={`/orders/${order.id}`}><strong>{order.reference}</strong><span>{new Date(order.created_at).toLocaleDateString()} · {order.status} · payment {order.payment_status}</span><b>{formatMoney(order.total_minor, order.currency)}</b></Link></li>)}</ul>
+    {orders.isError && <p className="auth-error" role="alert">Orders unavailable: {orders.error.message}{orders.data ? ' Showing the last saved list; it may be out of date.' : ''}</p>}
+    {orders.isPending ? <p role="status">Loading orders…</p> : orders.data && (!orders.data.rows.length ? <p>No orders yet. <Link to="/#products">Find your first plan</Link>.</p> : <>
+      <ul className="customer-orders">{orders.data.rows.map((order) => <li key={order.id}><Link to={`/orders/${order.id}`}><strong>{order.reference}</strong><span>{new Date(order.created_at).toLocaleDateString()} · {orderStatusLabels[order.status]} · Payment: {paymentStatusLabels[order.payment_status]}</span><b>{formatMoney(order.total_minor, order.currency)}</b></Link></li>)}</ul>
       <div className="order-pagination"><button className="auth-switch" disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</button><span>Page {page} · {orders.data.total} orders</span><button className="auth-switch" disabled={page * 10 >= orders.data.total} onClick={() => setPage(page + 1)}>Next</button></div>
-    </>}
+    </>)}
+    <button className="auth-guest" disabled={orders.isFetching} onClick={() => void orders.refetch()}>{orders.isFetching ? 'Refreshing…' : orders.isError ? 'Retry orders' : 'Refresh orders'}</button>
     <Link className="auth-guest" to="/checkout">Checkout / resolve a saved attempt</Link>
     <Link className="auth-guest" to="/#products">Back to store</Link>
   </div></section>;

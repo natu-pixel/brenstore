@@ -6,6 +6,7 @@ import { useAuth } from '../auth/AuthProvider';
 import type { Currency, Order, OrderDetail, TopupProcessResult } from '../features/api';
 import { processTopupDeliveries, useCommand, useResource } from '../features/api';
 import { formatMoney, parseMoney, priceInput } from '../lib/money';
+import { optionSummary } from '../data/plan-options';
 import { AsyncState, Badge, CheckField, Dialog, EmptyState, ErrorNotice, Field, FormFooter, NoteForm, PageHeading, Pagination, ReasonDialog, SearchBox, Table } from './shared';
 import { useListFilters } from './hooks';
 import { canManage, dateTime, shortId, titleCase } from './utils';
@@ -164,7 +165,8 @@ export function OrderDetailPage() {
         <div className="admin-detail-grid"><div>
           <section className="admin-panel"><div className="admin-panel-heading"><h2>Order items</h2><span className="admin-muted">Immutable checkout snapshot</span></div>
             <Table label="Order items" columns={['Plan', 'Quantity', 'Unit price', 'Line total']}>
-              {detail.items.map(item => <tr key={item.id}><td><strong>{item.name}</strong><small className="admin-wrap">{item.description}</small><small>{item.player_id ? `Player ID ${item.player_id}` : `${item.billing_days}-day term`}</small></td>
+              {detail.items.map(item => <tr key={item.id}><td><strong>{item.name}</strong><small className="admin-wrap">{item.description}</small><small>{item.player_id ? `Player ID ${item.player_id}` : `${item.billing_days}-day term`}</small>
+                {item.option_code && <small>{optionSummary(item)}</small>}</td>
                 <td className="admin-numeric">{item.qty}</td><td className="admin-numeric">{formatMoney(item.unit_minor, detail.order.currency)}</td><td className="admin-numeric">{formatMoney(item.unit_minor * item.qty, detail.order.currency)}</td></tr>)}
             </Table><div className="admin-total"><span>Order total</span><strong>{formatMoney(detail.order.total_minor, detail.order.currency)}</strong></div>
           </section>
