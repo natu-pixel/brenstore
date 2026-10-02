@@ -24,6 +24,8 @@ Apply `20261002000100_bren_services.sql` before releasing this admin UI. The add
 
 Unclassified linked plans remain purchasable, with a disabled switch until a classified option is selected. Missing options never create a purchase. Existing stored carts still load; a changed option/package size blocks checkout until the customer removes and re-adds that plan. Search/Featured filters match a service if any linked plan matches while retaining its other options.
 
+Owners and Managers can **Delete** a plan from **Plans** or a service's options table after providing a reason and confirming permanent deletion. Apply `20261002000200_bren_delete_plan.sql` before using this action. Only unused plans with zero capacity and no orders, allocations, stock movements or top-up deliveries can be deleted. The service and sibling options remain; the deletion is audited. History-bearing plans must instead be archived through **Edit > Status > Archived**. The server rechecks the plan and its current name under a catalog lock; stale, unauthorized and failed deletions never appear successful. Saved carts retain deleted lines with the existing unavailable-plan warning.
+
 - Fresh deployments start with an empty catalog. Manage categories and plans in admin; migrations do not create demo inventory. The current hosted project's requested category setup is documented below.
 - Plans have separately maintained **USD and ETB prices** in integer minor units. No exchange-rate conversion is performed.
 - Checkout requires an authenticated customer. An order is successful only after the database persists it.
@@ -100,7 +102,9 @@ npx supabase db push
 
 ### Current hosted status
 
-On 2026-10-02, the additive `20261002000100_bren_services` migration was applied to the linked Brenstore project. All six migration versions match locally and remotely. Before/after integrity fingerprints matched for the existing plan fields, order items, orders, allocations and payments. The migration linked two known services; their existing ambiguous plans remain unclassified for explicit staff review. No new sellable options, prices or stock were invented.
+On 2026-10-02, the additive `20261002000100_bren_services` migration was applied to the linked Brenstore project. At that deployment, all six migration versions matched locally and remotely. Before/after integrity fingerprints matched for the existing plan fields, order items, orders, allocations and payments. The migration linked two known services; their existing ambiguous plans remained unclassified for explicit staff review. No new sellable options, prices or stock were invented.
+
+The `20261002000200_bren_delete_plan` migration was subsequently applied on the same date, enabling the audited, history-protected deletion action. The deployed function and anonymous-access restrictions were checked; no hosted plans were deleted during implementation or validation.
 
 The authorized CLI deployment to **brenstore** (`gwdpxgezgztbvhiynaqp`, `eu-west-1`) covers the four initial migrations, the `bren-invite` Edge Function, the `20260924000100_bren_topup` migration (top-up plans, player-ID snapshots, per-unit delivery tracking and the service-role delivery workflow), and the `bren-topup` Edge Function with the `GTOPUP_API_KEY` secret set server-side. The existing project was inspected first: no application tables or migration history existed, and its single unconfirmed Auth account was preserved. No sample plans, orders or staff were created.
 

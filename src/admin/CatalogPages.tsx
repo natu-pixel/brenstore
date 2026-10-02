@@ -10,7 +10,7 @@ import BrandLogo from '../components/BrandLogo';
 import { resolveService, servicesForCategory, SERVICES } from '../data/logos';
 import { optionCodeSchema } from '../features/contracts';
 import { optionLabels, optionSummary } from '../data/plan-options';
-import { AsyncState, Badge, CheckField, Dialog, EmptyState, ErrorNotice, Field, FormFooter, PageHeading, Pagination, SearchBox, Table } from './shared';
+import { AsyncState, Badge, CheckField, Dialog, EmptyState, ErrorNotice, Field, FormFooter, PageHeading, Pagination, ReasonDialog, SearchBox, Table } from './shared';
 import { useCategories, useListFilters } from './hooks';
 import { integerInput, planForm, planInput, validSlug } from './validation';
 import type { PlanForm } from './validation';
@@ -180,11 +180,19 @@ export function PlanEditor({ plan, service, option, onClose }: {
   </Dialog>;
 }
 
+export function DeletePlanDialog({ plan, onClose }: { plan: Plan; onClose: () => void }) {
+  return <ReasonDialog title={`Delete ${plan.name}`} action="delete_plan" input={{ id: plan.id, name: plan.name }}
+    description="Permanently delete this plan option? Its service and other options will remain. Plans with stock, orders or inventory history cannot be deleted. For those plans, use Edit > Status > Archived to remove them from sale."
+    acknowledge="I understand this permanently deletes this plan and cannot be undone."
+    label="Delete plan" onClose={onClose} />;
+}
+
 export function PlansPage() {
   const filters = useListFilters();
   const result = useResource('plans', filters.args);
   const categories = useCategories();
   const [editor, setEditor] = useState<Plan | 'new' | null>(null);
+  const [deleting, setDeleting] = useState<Plan | null>(null);
   return <><PageHeading title="Plans" description="Manage your subscription catalog and independent currency prices."
     action={<button className="admin-button admin-button-primary" onClick={() => setEditor('new')}><IconPlus size={17} />Create plan</button>} />
     <section className="admin-panel"><div className="admin-toolbar">
@@ -201,11 +209,15 @@ export function PlansPage() {
               {plan.service_id && <small><Link to={`/admin/services/${plan.service_id}`}>{plan.service_name}</Link> · {optionSummary(plan) || 'Needs option classification'}</small>}</div></div></td>
             <td><Badge value={plan.status} /></td><td className="admin-numeric">{plan.usd_minor === null ? 'Not set' : formatMoney(plan.usd_minor, 'USD')}</td>
             <td className="admin-numeric">{plan.etb_minor === null ? 'Not set' : formatMoney(plan.etb_minor, 'ETB')}</td><td className="admin-numeric">{plan.kind === 'topup' ? 'Provider-delivered' : `${plan.available} available / ${plan.capacity}`}</td>
-            <td><button className="admin-button admin-button-small" aria-label={`Edit ${plan.name}`} onClick={() => setEditor(plan)}>Edit</button></td></tr>)}
+            <td><div className="admin-row-actions">
+              <button className="admin-button admin-button-small" aria-label={`Edit ${plan.name}`} onClick={() => setEditor(plan)}>Edit</button>
+              <button className="admin-button admin-button-small admin-button-danger" aria-label={`Delete ${plan.name}`} onClick={() => setDeleting(plan)}>Delete</button>
+            </div></td></tr>)}
         </Table> : <EmptyState title={filters.query || filters.status || filters.categoryId ? 'No matching plans' : 'Your catalog is empty'}>Create a draft plan, add both prices, then set its capacity before publishing.</EmptyState>)}
         {result.data && <Pagination page={result.data.page} pageSize={result.data.page_size} total={result.data.total} onPage={page => filters.setFilter('page', String(page))} />}
       </AsyncState>
-    </section>{editor && <PlanEditor plan={editor === 'new' ? undefined : editor} onClose={() => setEditor(null)} />}</>;
+    </section>{editor && <PlanEditor plan={editor === 'new' ? undefined : editor} onClose={() => setEditor(null)} />}
+    {deleting && <DeletePlanDialog plan={deleting} onClose={() => setDeleting(null)} />}</>;
 }
 
 function CategoryEditor({ category, onClose }: { category?: Category; onClose: () => void }) {

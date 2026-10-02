@@ -147,7 +147,7 @@ export type Customer = z.infer<typeof customerSchema>;
 export type OrderDetail = z.infer<typeof orderDetailSchema>;
 export type Input = { [key: string]: Json | undefined };
 export type Action =
-  | 'save_category' | 'save_service' | 'save_plan' | 'adjust_capacity' | 'release_allocation'
+  | 'save_category' | 'save_service' | 'save_plan' | 'delete_plan' | 'adjust_capacity' | 'release_allocation'
   | 'create_order' | 'confirm_payment' | 'fulfill_order' | 'cancel_order'
   | 'add_order_note' | 'add_customer_note' | 'save_profile' | 'update_staff' | 'save_settings';
 

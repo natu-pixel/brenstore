@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { z } from 'zod';
 import { orderDetailSchema, planSchema } from '../../src/features/contracts';
+import { planForm, planInput } from '../../src/admin/validation';
 import { startTestDatabase } from '../postgres/database';
 import { connectTestDatabase } from './database-adapter';
 import type { BrowserAccount } from './database-adapter';
@@ -65,6 +66,31 @@ test('admin service relationships create one compact card and preserve exact pur
   expect(single.option_code).toBe('single_user');
   expect(mail).toMatchObject({ option_code: 'on_mail', users_included: 5 });
   await expect(page.getByRole('table', { name: 'Netflix options' })).toBeVisible();
+  const serviceUrl = page.url();
+  for (const [index, name] of ['Unused service option', 'Unused standalone plan'].entries()) {
+    const form = { ...planForm(single), name, slug: `unused-option-${index}`, billing_days: '90', status: 'draft' as const };
+    const input = planInput(index === 0 ? form : { ...form, service_id: '', option_code: '', users_included: '' });
+    const unused = z.object({ id: z.string() }).parse(await database.mutate('save_plan', input, owner.id));
+    await page.goto(index === 0 ? serviceUrl : '/admin/plans');
+    await page.getByRole('button', { name: `Delete ${name}`, exact: true }).click();
+    let deletion = page.getByRole('dialog', { name: `Delete ${name}` });
+    await deletion.getByRole('button', { name: 'Close dialog' }).click();
+    await expect(deletion).not.toBeVisible();
+    await page.getByRole('button', { name: `Delete ${name}`, exact: true }).click();
+    deletion = page.getByRole('dialog', { name: `Delete ${name}` });
+    await deletion.getByLabel('Reason / staff note').fill('Duplicate unused offer');
+    await deletion.getByRole('button', { name: 'Delete plan', exact: true }).click();
+    await expect(deletion).toBeVisible();
+    await deletion.getByRole('checkbox').check();
+    await deletion.getByRole('button', { name: 'Delete plan', exact: true }).click();
+    await expect(deletion).not.toBeVisible();
+    await expect(page.getByRole('button', { name: `Delete ${name}`, exact: true })).toHaveCount(0);
+    const deleted = await database.admin.query('select id from bren_private.bren_plans where id = $1', [unused.id]);
+    expect(deleted.rows).toHaveLength(0);
+  }
+  await page.goto(serviceUrl);
+  await expect(page.getByRole('table', { name: 'Netflix options' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Delete Netflix - On mail', exact: true })).toBeVisible();
   await page.screenshot({ path: info.outputPath('admin-service-options.png'), fullPage: true });
   for (const plan of [single, mail]) {
     await database.mutate('adjust_capacity', { plan_id: plan.id, capacity: 5, reason: 'Option test capacity' }, owner.id);
@@ -125,5 +151,14 @@ test('admin service relationships create one compact card and preserve exact pur
       expect.objectContaining({ plan_id: mail.id, name: 'Netflix - On mail', unit_minor: 1299, qty: 1, option_code: 'on_mail', users_included: 5 }),
     ]));
     expect(saved.items).toHaveLength(2);
+    await page.reload();
+    await page.getByRole('button', { name: 'Delete Netflix - On mail', exact: true }).click();
+    const protectedDeletion = page.getByRole('dialog', { name: 'Delete Netflix - On mail' });
+    await protectedDeletion.getByLabel('Reason / staff note').fill('Attempt to remove a purchased plan');
+    await protectedDeletion.getByRole('checkbox').check();
+    await protectedDeletion.getByRole('button', { name: 'Delete plan', exact: true }).click();
+    await expect(protectedDeletion.getByRole('alert')).toContainText('cannot be deleted');
+    await expect(protectedDeletion.getByRole('alert')).toContainText('Archived');
+    expect(orderDetailSchema.parse(await database.read('order', { id }, customer.id))).toEqual(saved);
   } finally { await shopContext.close(); }
 });

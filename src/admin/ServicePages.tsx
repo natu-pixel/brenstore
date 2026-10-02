@@ -6,7 +6,7 @@ import type { OptionCode, Plan, Service } from '../features/api';
 import { SERVICES, servicesForCategory } from '../data/logos';
 import { optionLabels, optionSummary } from '../data/plan-options';
 import { formatMoney } from '../lib/money';
-import { PlanEditor } from './CatalogPages';
+import { DeletePlanDialog, PlanEditor } from './CatalogPages';
 import { useCategories, useListFilters } from './hooks';
 import { validSlug } from './validation';
 import { AsyncState, Badge, Dialog, EmptyState, ErrorNotice, Field, FormFooter, PageHeading, Pagination, SearchBox, Table } from './shared';
@@ -93,6 +93,7 @@ export function ServiceDetailPage() {
   const service = result.data?.rows[0];
   const [editingService, setEditingService] = useState(false);
   const [editor, setEditor] = useState<Plan | OptionCode | null>(null);
+  const [deleting, setDeleting] = useState<Plan | null>(null);
   return <><Link to="/admin/services">Back to services</Link>
     <AsyncState pending={result.isPending} error={result.error} retry={() => { void result.refetch(); }}>
       {result.data && !service && <EmptyState title="Service not found">Return to the service list.</EmptyState>}
@@ -114,7 +115,10 @@ export function ServiceDetailPage() {
                 <td>{plan.usd_minor == null ? 'Not set' : formatMoney(plan.usd_minor, 'USD')}</td>
                 <td>{plan.etb_minor == null ? 'Not set' : formatMoney(plan.etb_minor, 'ETB')}</td>
                 <td>{plan.available} units</td><td><Badge value={plan.status} /></td>
-                <td><button className="admin-button" onClick={() => setEditor(plan)}>Edit {plan.name}</button></td>
+                <td><div className="admin-row-actions">
+                  <button className="admin-button" onClick={() => setEditor(plan)}>Edit {plan.name}</button>
+                  <button className="admin-button admin-button-danger" onClick={() => setDeleting(plan)}>Delete {plan.name}</button>
+                </div></td>
               </tr>)}
             </Table> : <EmptyState title="No options linked">Add a priced option or link an existing plan. Missing options are never invented.</EmptyState>)}
             {plans.data && <Pagination page={plans.data.page} pageSize={plans.data.page_size} total={plans.data.total} onPage={setPage} />}
@@ -123,6 +127,7 @@ export function ServiceDetailPage() {
         {editingService && <ServiceEditor service={service} onClose={() => setEditingService(false)} />}
         {editor && <PlanEditor plan={typeof editor === 'string' ? undefined : editor}
           service={service} option={typeof editor === 'string' ? editor : undefined} onClose={() => setEditor(null)} />}
+        {deleting && <DeletePlanDialog plan={deleting} onClose={() => setDeleting(null)} />}
       </>}
     </AsyncState>
   </>;

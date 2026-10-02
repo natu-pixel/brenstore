@@ -51,6 +51,74 @@ function planInput(serviceId?: string): Input {
   };
 }
 describe('service relationships', () => {
+  it('deletes unused options with an audit entry while retaining the service and siblings', async () => {
+    const s = await service();
+    const input = planInput(s.id);
+    const id = idOf(await db.mutate('save_plan', input, owner));
+    const sibling = idOf(await db.mutate('save_plan', { ...input, slug: `sibling-${crypto.randomUUID()}`, option_code: 'on_mail', users_included: 5 }, owner));
+    expect(idOf(await db.mutate('delete_plan', { id, name: input.name, note: 'Unused offer' }, owner))).toBe(id);
+    const remaining = resourceSchemas.plans.parse(await db.read('plans', { service_id: s.id }, owner));
+    expect(remaining.rows.map(row => row.id)).toEqual([sibling]);
+    expect(resourceSchemas.services.parse(await db.read('services', { id: s.id }, owner)).total).toBe(1);
+    expect(resourceSchemas.catalog.parse(await db.read('catalog', {}, null, 'anon')).some(row => row.id === id)).toBe(false);
+    const audit = await db.admin.query('select action, summary from bren_private.bren_activity where entity_id = $1 and action = $2', [id, 'delete_plan']);
+    expect(audit.rows).toEqual([{ action: 'delete_plan', summary: 'Deleted plan Any display name: Unused offer' }]);
+    await expect(db.mutate('delete_plan', { id, name: input.name, note: 'Retry' }, owner)).rejects.toThrow('Plan not found');
+    await db.mutate('save_plan', input, owner);
+  });
+
+  it('validates deletion permissions, confirmation identity and staff reason', async () => {
+    const input = planInput();
+    const id = idOf(await db.mutate('save_plan', input, owner));
+    const deletion = { id, name: input.name, note: 'Unused draft' };
+    for (const actor of [customer, support]) await expect(db.mutate('delete_plan', deletion, actor)).rejects.toThrow();
+    await expect(db.mutate('delete_plan', deletion, null, 'anon')).rejects.toThrow();
+    await expect(db.mutate('delete_plan', { ...deletion, name: 'Wrong plan name' }, owner)).rejects.toThrow('renamed');
+    await expect(db.mutate('delete_plan', { ...deletion, note: ' ' }, owner)).rejects.toThrow();
+    await expect(db.mutate('delete_plan', { ...deletion, unexpected: true }, owner)).rejects.toThrow();
+    expect(resourceSchemas.plans.parse(await db.read('plans', { plan_id: id }, owner)).total).toBe(1);
+    const manager = await db.createUser('Deleting manager');
+    await db.registerStaff(manager, 'manager', owner);
+    await db.mutate('delete_plan', deletion, manager);
+    expect(resourceSchemas.plans.parse(await db.read('plans', { plan_id: id }, owner)).total).toBe(0);
+  });
+
+  it('protects stock and inventory history even after capacity returns to zero', async () => {
+    const input = planInput();
+    const id = idOf(await db.mutate('save_plan', input, owner));
+    const deletion = { id, name: input.name, note: 'Remove offer' };
+    await db.mutate('adjust_capacity', { plan_id: id, capacity: 2, reason: 'Stock received' }, owner);
+    await expect(db.mutate('delete_plan', deletion, owner)).rejects.toThrow('cannot be deleted');
+    await db.mutate('adjust_capacity', { plan_id: id, capacity: 0, reason: 'Stock withdrawn' }, owner);
+    await expect(db.mutate('delete_plan', deletion, owner)).rejects.toThrow('Archived');
+    const history = await db.admin.query('select count(*)::int as count from bren_private.bren_movements where plan_id = $1', [id]);
+    expect(history.rows[0].count).toBe(2);
+    await db.mutate('save_plan', { ...input, id, status: 'archived' }, owner);
+    expect(resourceSchemas.plans.parse(await db.read('plans', { plan_id: id }, owner)).rows[0].status).toBe('archived');
+  });
+
+  it('preserves pending top-up order snapshots when deletion is rejected', async () => {
+    const input = { ...planInput(), kind: 'topup', provider_package_id: '6' };
+    const id = idOf(await db.mutate('save_plan', input, owner));
+    const order = idOf(await db.mutate('create_order', {
+      idempotency_key: crypto.randomUUID(), currency: 'USD', name: 'Customer', phone: '12345', telegram: '',
+      items: [{ plan_id: id, qty: 1, unit_minor: 499, player_id: '123456789' }],
+    }, customer));
+    const before = orderDetailSchema.parse(await db.read('order', { id: order }, customer));
+    await expect(db.mutate('delete_plan', { id, name: input.name, note: 'Remove offer' }, owner)).rejects.toThrow('cannot be deleted');
+    expect(orderDetailSchema.parse(await db.read('order', { id: order }, customer))).toEqual(before);
+  });
+
+  it('audits exactly one deletion for concurrent requests', async () => {
+    const input = planInput();
+    const id = idOf(await db.mutate('save_plan', input, owner));
+    const deletion = { id, name: input.name, note: 'Unused offer' };
+    const results = await Promise.allSettled([db.mutate('delete_plan', deletion, owner), db.mutate('delete_plan', deletion, owner)]);
+    expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1);
+    const audit = await db.admin.query("select count(*)::int as count from bren_private.bren_activity where entity_id = $1 and action = 'delete_plan'", [id]);
+    expect(audit.rows[0].count).toBe(1);
+  });
+
   it('upgrades existing named options without guessing descriptions, duplicates or package counts', async () => {
     const rows = resourceSchemas.catalog.parse(await db.read('catalog', {}, null, 'anon'));
     const legacy = legacyIds.map(id => rows.find(row => row.id === id));
