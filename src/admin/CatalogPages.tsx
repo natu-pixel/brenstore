@@ -10,6 +10,7 @@ import BrandLogo from '../components/BrandLogo';
 import { resolveService, servicesForCategory, SERVICES } from '../data/logos';
 import { optionCodeSchema } from '../features/contracts';
 import { optionLabels, optionSummary } from '../data/plan-options';
+import { billingTerms } from '../data/products';
 import { AsyncState, Badge, CheckField, Dialog, EmptyState, ErrorNotice, Field, FormFooter, PageHeading, Pagination, ReasonDialog, SearchBox, Table } from './shared';
 import { useCategories, useListFilters } from './hooks';
 import { integerInput, planForm, planInput, validSlug } from './validation';
@@ -158,7 +159,23 @@ export function PlanEditor({ plan, service, option, onClose }: {
       </div>
       {form.kind === 'topup' && packages.isPending && <p role="status">Loading provider packages…</p>}
       {form.kind === 'topup' && packages.isError && <ErrorNotice error={packages.error} retry={() => { void packages.refetch(); }} />}
-      {form.kind === 'seat' && <Field label="Billing term (days)"><input type="number" min={1} max={3650} step={1} required value={form.billing_days} onChange={event => update('billing_days', event.target.value)} /></Field>}
+      {form.kind === 'seat' && <>
+        <div className="admin-row-actions" role="group" aria-label="Billing duration presets">
+          {billingTerms.map(term => <button className="admin-button" type="button" key={term.days}
+            aria-pressed={form.billing_days === String(term.days)}
+            onClick={() => setForm(previous => {
+              const baseSlug = service && option ? `${service.slug}-${option === 'single_user' ? '1-user' : 'on-mail'}` : null;
+              const generated = baseSlug && [baseSlug, ...billingTerms.map(item => `${baseSlug}-${item.label.toLowerCase()}`)];
+              return {
+                ...previous, billing_days: String(term.days),
+                slug: !plan && baseSlug && generated?.includes(previous.slug)
+                  ? `${baseSlug}${term.days === 30 ? '' : `-${term.label.toLowerCase()}`}` : previous.slug,
+              };
+            })}>{term.label} ({term.days} days)</button>)}
+        </div>
+        <Field label="Billing term (days)"><input type="number" min={1} max={3650} step={1} required value={form.billing_days} onChange={event => update('billing_days', event.target.value)} /></Field>
+        <p className="admin-muted">Each duration needs its own plan, prices and stock. These are fixed-day terms, not automatic renewals. Custom day counts remain supported.</p>
+      </>}
       <h3>Independent prices</h3><p className="admin-muted">Enter each currency separately. No exchange-rate conversion is used. Publishing requires both prices.</p>
       <div className="admin-form-grid">
         <Field label="USD price" hint="Up to two decimal places."><input inputMode="decimal" placeholder="0.00" value={form.usd} onChange={event => update('usd', event.target.value)} /></Field>

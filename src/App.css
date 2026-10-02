@@ -634,6 +634,7 @@
 .card-details p { margin: 6px 0; overflow-wrap: anywhere; white-space: pre-wrap; }
 .card-plan-select { display: grid; gap: 6px; margin-bottom: 10px; color: #cbd5e1; font-size: 0.8rem; }
 .card-plan-select select { min-width: 0; width: 100%; padding: 9px; border: 1px solid #59677f; border-radius: 8px; background: #20283a; color: #f1f5f9; font: inherit; }
+.card-duration-select { flex: 1; min-width: 0; max-width: 145px; min-height: 32px; padding: 6px 8px; border: 1px solid #59677f; border-radius: 8px; background: #20283a; color: #f1f5f9; font: inherit; font-size: 0.8rem; cursor: pointer; }
 .card-option-error { color: #fca5a5; font-size: 0.85rem; line-height: 1.5; }
 
 .price-now {

@@ -95,7 +95,7 @@ describe('durable, idempotent checkout', () => {
     expect(loadCheckoutIntent(customerId)).toEqual(previous);
     fireEvent.click(within(current).getByRole('button', { name: 'Review this cart' }));
     expect(await screen.findByRole('button', { name: /Place pending order/ })).toBeInTheDocument();
-    expect(screen.getByText('3 × USD 4.99 · 30 days')).toBeInTheDocument();
+    expect(screen.getByText('3 × USD 4.99 · Monthly (30 days)')).toBeInTheDocument();
     expect(command).not.toHaveBeenCalled();
     expect(cleared).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: /Place pending order/ }));

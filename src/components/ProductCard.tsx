@@ -1,7 +1,7 @@
 import { useId, useState } from 'react';
 import { IconShoppingCart } from '@tabler/icons-react';
 import { MAX_QUANTITY, useCart } from '../cart';
-import { billingLabel, comparePrice, planPrice } from '../data/products';
+import { billingLabel, billingTerms, comparePrice, planPrice } from '../data/products';
 import { optionSummary, planChoices } from '../data/plan-options';
 import type { PlanGroup } from '../data/plan-options';
 import type { Plan } from '../features/contracts';
@@ -27,7 +27,15 @@ export default function ProductCard({ group }: { group: PlanGroup }) {
   const onMail = selectedChoice?.key === 'On mail';
   const namedSelection = onMail || selectedChoice?.key === '1 user';
   const nextChoice = choices.find(choice => choice.key === (onMail ? '1 user' : 'On mail'));
-  const nextPlan = nextChoice?.plans.find(plan => !unavailable(plan));
+  const nextPlan = nextChoice?.plans.find(candidate => candidate.billing_days === plan?.billing_days && !unavailable(candidate))
+    ?? nextChoice?.plans.find(candidate => !unavailable(candidate));
+  const changesTerm = plan && nextPlan && plan.billing_days !== nextPlan.billing_days;
+  const durationPlans = selectedChoice?.plans ?? (plan ? [plan] : []);
+  const durations = [
+    ...billingTerms.map(term => ({ label: term.label, days: term.days, plan: durationPlans.find(candidate => candidate.billing_days === term.days) })),
+    ...durationPlans.filter(candidate => !billingTerms.some(term => term.days === candidate.billing_days))
+      .map(candidate => ({ label: billingLabel(candidate.billing_days), days: candidate.billing_days, plan: candidate })),
+  ];
   const hasOtherPlans = choices.some(choice => choice.key !== '1 user' && choice.key !== 'On mail');
   const price = plan ? planPrice(plan, currency) : null;
   const comparison = plan ? comparePrice(plan, currency) : null;
@@ -59,9 +67,10 @@ export default function ProductCard({ group }: { group: PlanGroup }) {
           </button>
           <span className={`plan-toggle-label${onMail ? ' is-selected' : ''}`}>On mail</span>
         </div>
-        <p className="plan-toggle-help" id={switchHelpId} hidden={namedSelection && Boolean(nextPlan)}>
+        <p className="plan-toggle-help" id={switchHelpId} hidden={namedSelection && Boolean(nextPlan) && !changesTerm}>
           {!namedSelection ? 'Options not set for this plan.'
             : !nextPlan ? `${nextChoice?.label} is not available.`
+            : changesTerm ? `${nextChoice?.label} will use ${billingLabel(nextPlan.billing_days)}.`
             : 'Off: 1 user. On: On mail.'}
         </p>
         {(!namedSelection || hasOtherPlans) && (!plan || group.plans.length > 1) && <label className="card-plan-select">{group.name} plan
@@ -73,18 +82,21 @@ export default function ProductCard({ group }: { group: PlanGroup }) {
           </select>
         </label>}
       </div>}
-      {selectedChoice && selectedChoice.plans.length > 1 && <label className="card-plan-select">{group.name} billing plan
-        <select value={selectedId} onChange={event => setSelectedId(event.target.value)}>
-          {selectedChoice.plans.map(plan => <option key={plan.id} value={plan.id} disabled={unavailable(plan)}>
-            {billingLabel(plan.billing_days)} · {planPrice(plan, currency) === null ? 'Not priced' : formatMoney(planPrice(plan, currency)!, currency)} · {plan.available ?? 0} available
-          </option>)}
-        </select>
-      </label>}
       {!plan && <p className="card-option-error" role="alert">The selected plan is no longer published. Choose an available option.</p>}
       {plan && <>
         <div className="card-price-row" aria-live="polite" aria-atomic="true">
           <span className="price-now">{price === null ? 'Not priced' : formatMoney(price, currency)}</span>
-          <span className="price-per">{plan.kind === 'topup' ? 'one-time' : `/ ${billingLabel(plan.billing_days)}`}</span>
+          {plan.kind === 'topup' ? <span className="price-per">one-time</span> :
+            <select className="card-duration-select" aria-label={`${group.name} billing plan`} value={plan.id}
+              onChange={event => {
+                const selected = durationPlans.find(candidate => candidate.id === event.target.value);
+                if (selected && !unavailable(selected)) setSelectedId(selected.id);
+              }}>
+              {durations.map(duration => <option key={duration.plan?.id ?? `missing-${duration.days}`}
+                value={duration.plan?.id ?? `missing-${duration.days}`} disabled={!duration.plan || unavailable(duration.plan)}>
+                {duration.label}{!duration.plan || unavailable(duration.plan) ? ' (unavailable)' : ''}
+              </option>)}
+            </select>}
         </div>
         <details className="card-details" key={plan.id}>
           <summary>Details</summary>
@@ -92,6 +104,7 @@ export default function ProductCard({ group }: { group: PlanGroup }) {
             {plan.name !== group.name && <p>{plan.name}</p>}
             {plan.option_code && <p>{optionSummary(plan)}</p>}
             {plan.description && <p>{plan.description}</p>}
+            {plan.kind !== 'topup' && <p>Duration: {billingLabel(plan.billing_days)}</p>}
             <p>Availability: {stock.label}</p>
             {comparison !== null && price !== null && comparison > price && <p>Previous price: {formatMoney(comparison, currency)}</p>}
           </div>

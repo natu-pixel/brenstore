@@ -13,7 +13,7 @@ import type { OrderDetail } from '../features/api';
 import { formatMoney } from '../lib/money';
 import { safeTelegramUrl } from '../lib/telegram';
 import { isOpenOrder, orderRefreshInterval, orderStatusLabels, paymentStatusLabels } from '../lib/orders';
-import { planPrice } from '../data/products';
+import { billingLabel, planPrice } from '../data/products';
 import { optionChanged, optionSummary } from '../data/plan-options';
 
 export const playerIdPattern = /^[0-9]{6,20}$/;
@@ -211,7 +211,7 @@ export default function Checkout() {
         <ul className="checkout-list">
           {cart.lines.map((line) => <li className="checkout-line" key={line.product.id}>
             <BrandLogo product={line.product} size={40} />
-            <div className="checkout-line-info"><strong>{line.product.name}</strong><span>{line.qty} × {line.unitMinor === null ? 'Unpriced' : formatMoney(line.unitMinor, cart.currency)} · {line.product.kind === 'topup' ? 'one-time top-up' : `${line.product.billing_days} days`}</span>
+            <div className="checkout-line-info"><strong>{line.product.name}</strong><span>{line.qty} × {line.unitMinor === null ? 'Unpriced' : formatMoney(line.unitMinor, cart.currency)} · {line.product.kind === 'topup' ? 'one-time top-up' : billingLabel(line.product.billing_days)}</span>
               {line.product.option_code && <span>{optionSummary(line.product)}</span>}
               {line.product.kind === 'topup' && <label className="auth-field checkout-player"><span>Free Fire player ID</span>
                 <input name={`player-${line.product.id}`} type="text" inputMode="numeric" autoComplete="off" required
@@ -266,7 +266,7 @@ export function OrderPage() {
       <dl className="order-facts"><div><dt>Order status</dt><dd>{orderStatusLabels[detail.order.status]}</dd></div><div><dt>Payment</dt><dd>{paymentStatusLabels[detail.order.payment_status]}</dd></div><div><dt>Placed</dt><dd>{new Date(detail.order.created_at).toLocaleString()}</dd></div></dl>
       <OrderProgress detail={detail} />
       <div className="success-summary">
-        {detail.items.map((item) => <div className="success-line" key={item.id}><span>{item.qty} × {item.name}<small className="order-term">{item.player_id ? `Player ID ${item.player_id} · ${formatMoney(item.unit_minor, detail.order.currency)} each` : `${item.billing_days} days · ${formatMoney(item.unit_minor, detail.order.currency)} per unit`}</small>
+        {detail.items.map((item) => <div className="success-line" key={item.id}><span>{item.qty} × {item.name}<small className="order-term">{item.player_id ? `Player ID ${item.player_id} · ${formatMoney(item.unit_minor, detail.order.currency)} each` : `${billingLabel(item.billing_days)} · ${formatMoney(item.unit_minor, detail.order.currency)} per unit`}</small>
           {item.option_code && <small className="order-term">{optionSummary(item)}</small>}</span><b>{formatMoney(item.unit_minor * item.qty, detail.order.currency)}</b></div>)}
         <div className="success-line success-total"><span>Total</span><b>{formatMoney(detail.order.total_minor, detail.order.currency)}</b></div>
       </div>

@@ -112,12 +112,85 @@ describe('grouped streaming plan cards', () => {
     plans.push({ ...single, id: 'yearly', slug: 'netflix-1-user-yearly', billing_days: 365, usd_minor: 4999 });
     render(<Products />);
     const terms = screen.getByRole('combobox', { name: 'Netflix billing plan' });
-    expect(within(terms).getAllByRole('option')).toHaveLength(2);
+    expect(within(terms).getAllByRole('option')).toHaveLength(3);
+    expect(within(terms).getByRole('option', { name: 'Quarterly (unavailable)' })).toBeDisabled();
     fireEvent.change(terms, { target: { value: 'yearly' } });
     expect(screen.getByText('USD 49.99')).toBeInTheDocument();
-    expect(screen.getByText('/ 365 days')).toBeInTheDocument();
+    expect(terms).toHaveValue('yearly');
+    expect(screen.getByText('Duration: Yearly (365 days)')).not.toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Add Netflix - 1 user to cart' }));
     expect(mocks.add).toHaveBeenCalledWith('yearly');
+  });
+
+  it('shows all three standard durations without inventing unconfigured plans', () => {
+    render(<Products />);
+    const terms = screen.getByRole('combobox', { name: 'Netflix billing plan' });
+    expect(within(terms).getByRole('option', { name: 'Monthly' })).toBeEnabled();
+    expect(within(terms).getByRole('option', { name: 'Quarterly (unavailable)' })).toBeDisabled();
+    expect(within(terms).getByRole('option', { name: 'Yearly (unavailable)' })).toBeDisabled();
+    expect(terms).toHaveValue(single.id);
+  });
+
+  it('selects quarterly prices and preserves a yearly duration across option and currency changes', () => {
+    plans.push(
+      { ...single, id: 'quarterly', billing_days: 90, usd_minor: 1299 },
+      { ...single, id: 'yearly', billing_days: 365, usd_minor: 4999 },
+      { ...mail, id: 'mail-yearly', billing_days: 365, usd_minor: 9999, etb_minor: 1500000 },
+    );
+    const view = render(<Products />);
+    const terms = screen.getByRole('combobox', { name: 'Netflix billing plan' });
+    fireEvent.change(terms, { target: { value: 'quarterly' } });
+    expect(screen.getByText('USD 12.99')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Add Netflix - 1 user to cart' }));
+    expect(mocks.add).toHaveBeenCalledWith('quarterly');
+    fireEvent.change(terms, { target: { value: 'yearly' } });
+    fireEvent.click(screen.getByRole('switch', { name: 'Netflix: On mail' }));
+    expect(terms).toHaveValue('mail-yearly');
+    expect(screen.getByText('USD 99.99')).toBeInTheDocument();
+    currency = 'ETB';
+    view.rerender(<Products />);
+    expect(terms).toHaveValue('mail-yearly');
+    expect(screen.getByText('ETB 15,000.00')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Add Netflix - On mail to cart' }));
+    expect(mocks.add).toHaveBeenCalledWith('mail-yearly');
+  });
+
+  it('warns before switching to another duration rather than stranding an option', () => {
+    plans = [single, { ...mail, billing_days: 365 }];
+    render(<Products />);
+    expect(screen.getByText('On mail will use Yearly (365 days).')).toBeVisible();
+    fireEvent.click(screen.getByRole('switch', { name: 'Netflix: On mail' }));
+    expect(screen.getByRole('combobox', { name: 'Netflix billing plan' })).toHaveValue(mail.id);
+    expect(screen.getByText('1 user will use Monthly (30 days).')).toBeVisible();
+  });
+
+  it('disables durations using their own currency prices, stock and cart limits', () => {
+    plans.push(
+      { ...single, id: 'quarterly', billing_days: 90, etb_minor: null },
+      { ...single, id: 'yearly', billing_days: 365, available: 0 },
+    );
+    currency = 'ETB';
+    const view = render(<Products />);
+    const terms = screen.getByRole('combobox', { name: 'Netflix billing plan' });
+    expect(within(terms).getByRole('option', { name: /^Quarterly/ })).toBeDisabled();
+    expect(within(terms).getByRole('option', { name: /^Yearly/ })).toBeDisabled();
+    currency = 'USD';
+    lines = [{ product: plans[2], qty: 5 }];
+    view.rerender(<Products />);
+    expect(within(terms).getByRole('option', { name: /^Quarterly/ })).toBeDisabled();
+    expect(terms).toHaveValue(single.id);
+  });
+
+  it('retains custom durations and does not show billing choices for top-ups', () => {
+    plans = [{ ...single, billing_days: 45 }];
+    const view = render(<Products />);
+    const terms = screen.getByRole('combobox', { name: 'Netflix billing plan' });
+    expect(within(terms).getByRole('option', { name: '45 days' })).toBeEnabled();
+    expect(terms).toHaveValue(single.id);
+    plans = [{ ...single, kind: 'topup', service_id: null, available: null }];
+    view.rerender(<Products />);
+    expect(screen.queryByRole('combobox', { name: /billing plan/ })).not.toBeInTheDocument();
+    expect(screen.getByText('one-time')).toBeInTheDocument();
   });
 
   it('keeps cart limits independent for each option', () => {

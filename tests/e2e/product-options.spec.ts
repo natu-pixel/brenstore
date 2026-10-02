@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { z } from 'zod';
-import { orderDetailSchema, planSchema } from '../../src/features/contracts';
+import { orderDetailSchema, planSchema, resourceSchemas } from '../../src/features/contracts';
 import { planForm, planInput } from '../../src/admin/validation';
 import { startTestDatabase } from '../postgres/database';
 import { connectTestDatabase } from './database-adapter';
@@ -161,4 +161,76 @@ test('admin service relationships create one compact card and preserve exact pur
     await expect(protectedDeletion.getByRole('alert')).toContainText('Archived');
     expect(orderDetailSchema.parse(await database.read('order', { id }, customer.id))).toEqual(saved);
   } finally { await shopContext.close(); }
+});
+
+test('monthly quarterly and yearly selections persist the chosen durations and independent prices', async ({ page }, info) => {
+  test.setTimeout(120_000);
+  const categories = resourceSchemas.public_categories.parse(await database.read('public_categories', {}, null, 'anon'));
+  const service = z.object({ id: z.string() }).parse(await database.mutate('save_service', {
+    name: 'Term service', slug: 'term-service', category_id: categories[0].id,
+    brand_key: 'netflix', initial: 'N', color_start: '#111111', color_end: '#222222',
+  }, owner.id));
+  await signIn(page, owner, `/admin/services/${service.id}`);
+  for (const option of ['1 user', 'On mail']) {
+    for (const term of [
+      { label: 'Monthly', days: 30, usd: '4.99' },
+      { label: 'Quarterly', days: 90, usd: '12.99' },
+      { label: 'Yearly', days: 365, usd: '49.99' },
+    ]) {
+      await page.getByRole('button', { name: `Add ${option} option`, exact: true }).click();
+      const editor = page.getByRole('dialog', { name: 'Create plan', exact: true });
+      await editor.getByRole('button', { name: `${term.label} (${term.days} days)`, exact: true }).click();
+      await expect(editor.getByLabel('Billing term (days)', { exact: true })).toHaveValue(String(term.days));
+      const baseSlug = `term-service-${option === '1 user' ? '1-user' : 'on-mail'}`;
+      await expect(editor.getByLabel(/^Slug/)).toHaveValue(`${baseSlug}${term.days === 30 ? '' : `-${term.label.toLowerCase()}`}`);
+      if (option === 'On mail') await editor.getByLabel(/^Users included/).fill('5');
+      await editor.getByLabel(/^USD price/).fill(term.usd);
+      await editor.getByLabel(/^ETB price/).fill(String(term.days * 10));
+      await editor.getByLabel(/^Status/).selectOption('active');
+      await editor.getByRole('button', { name: 'Create plan', exact: true }).click();
+      await expect(editor).not.toBeVisible();
+    }
+  }
+  const plans = resourceSchemas.plans.parse(await database.read('plans', { service_id: service.id }, owner.id)).rows;
+  expect(plans).toHaveLength(6);
+  for (const plan of plans) await database.mutate('adjust_capacity', { plan_id: plan.id, capacity: 5, reason: 'Term test stock' }, owner.id);
+  const quarterly = plans.find(plan => plan.option_code === 'single_user' && plan.billing_days === 90)!;
+  const yearly = plans.find(plan => plan.option_code === 'on_mail' && plan.billing_days === 365)!;
+  await page.goto('/#products');
+  const card = page.getByRole('article').filter({ has: page.getByRole('heading', { name: 'Term service', exact: true }) });
+  const duration = card.getByRole('combobox', { name: 'Term service billing plan' });
+  await expect(duration).toHaveValue(plans.find(plan => plan.option_code === 'single_user' && plan.billing_days === 30)!.id);
+  await duration.selectOption({ label: 'Quarterly' });
+  await expect(card.getByText('USD 12.99', { exact: true })).toBeVisible();
+  await card.getByRole('button', { name: 'Add Term service - 1 user to cart' }).click();
+  await duration.selectOption({ label: 'Yearly' });
+  await card.getByRole('switch', { name: 'Term service: On mail' }).click();
+  await expect(duration).toHaveValue(yearly.id);
+  await expect(card.getByText('USD 49.99', { exact: true })).toBeVisible();
+  for (const currency of ['USD', 'ETB']) {
+    await page.getByLabel('Display currency').selectOption(currency);
+    await page.setViewportSize({ width: 360, height: 1000 });
+    await expect(duration).toHaveValue(yearly.id);
+    expect(await card.evaluate(element => element.getBoundingClientRect().height)).toBeLessThan(400);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+    await card.screenshot({ path: info.outputPath(`duration-card-${currency}.png`) });
+  }
+  await page.getByLabel('Display currency').selectOption('USD');
+  await card.getByRole('button', { name: 'Add Term service - On mail to cart' }).click();
+  await page.getByRole('button', { name: 'Open cart (2 items)' }).click();
+  const cart = page.getByRole('dialog', { name: /Your Cart/ });
+  await expect(cart.getByText('Quarterly (90 days)', { exact: true })).toBeVisible();
+  await expect(cart.getByText('Yearly (365 days)', { exact: true })).toBeVisible();
+  await cart.getByRole('button', { name: 'Checkout', exact: true }).click();
+  await page.getByLabel('Full name', { exact: true }).fill('Term buyer');
+  await page.getByLabel('Phone', { exact: true }).fill('+251911234567');
+  await page.getByRole('button', { name: 'Place pending order' }).click();
+  await expect(page.getByRole('heading', { name: 'Saved Order' })).toBeVisible();
+  const orderId = z.string().uuid().parse(new URL(page.url()).pathname.split('/').at(-1));
+  const order = orderDetailSchema.parse(await database.read('order', { id: orderId }, owner.id));
+  expect(order.order.total_minor).toBe(6298);
+  expect(order.items).toEqual(expect.arrayContaining([
+    expect.objectContaining({ plan_id: quarterly.id, billing_days: 90, unit_minor: 1299, qty: 1 }),
+    expect.objectContaining({ plan_id: yearly.id, billing_days: 365, unit_minor: 4999, qty: 1 }),
+  ]));
 });

@@ -155,6 +155,22 @@ describe('server-aligned settings and input boundaries', () => {
     expect(within(dialog).getByLabelText(/^Low-stock threshold/)).toHaveAttribute('max', '1000000');
   });
 
+  it('sets duration presets without changing custom slugs or independently entered prices', async () => {
+    mount('/admin/plans');
+    await userEvent.click(screen.getByRole('button', { name: 'Create plan' }));
+    const editor = within(screen.getByRole('dialog', { name: 'Create plan' }));
+    fireEvent.change(editor.getByLabelText(/^Slug/), { target: { value: 'my-custom-offer' } });
+    fireEvent.change(editor.getByLabelText(/^USD price/), { target: { value: '12.99' } });
+    fireEvent.click(editor.getByRole('button', { name: 'Quarterly (90 days)' }));
+    expect(editor.getByLabelText('Billing term (days)')).toHaveValue(90);
+    fireEvent.click(editor.getByRole('button', { name: 'Yearly (365 days)' }));
+    expect(editor.getByLabelText('Billing term (days)')).toHaveValue(365);
+    expect(editor.getByLabelText(/^Slug/)).toHaveValue('my-custom-offer');
+    expect(editor.getByLabelText(/^USD price/)).toHaveValue('12.99');
+    fireEvent.change(editor.getByLabelText('Billing term (days)'), { target: { value: '45' } });
+    expect(editor.getByLabelText('Billing term (days)')).toHaveValue(45);
+  });
+
   it('can save a category with the supported negative sort order', async () => {
     mount('/admin/categories');
     await userEvent.click(screen.getByRole('button', { name: 'Create category' }));

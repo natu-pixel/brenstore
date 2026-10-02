@@ -3,7 +3,7 @@ import { IconChevronRight, IconMinus, IconPlus, IconShoppingCart, IconTrash, Ico
 import BrandLogo from './BrandLogo';
 import { useCart } from '../cart';
 import { formatMoney } from '../lib/money';
-import { planPrice } from '../data/products';
+import { billingLabel, planPrice } from '../data/products';
 import { optionChanged, optionSummary } from '../data/plan-options';
 import type { Currency } from '../features/api';
 
@@ -42,6 +42,7 @@ export default function CartDrawer({ open, onClose, onCheckout }: { open: boolea
                 <div className="drawer-item-info">
                   <strong>{plan.name}</strong><span>{plan.description}</span>
                   {plan.option_code && <span>{optionSummary(plan)}</span>}
+                  {plan.kind !== 'topup' && <span>{billingLabel(plan.billing_days)}</span>}
                   <div className="qty-stepper">
                     <button onClick={() => setQty(plan.id, qty - 1)} aria-label={`Decrease ${plan.name} quantity`}><IconMinus size={14} /></button>
                     <b>{qty}</b>
