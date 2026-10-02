@@ -111,24 +111,34 @@ describe('grouped streaming plan cards', () => {
   it('offers separate billing plans without collapsing their IDs', () => {
     plans.push({ ...single, id: 'yearly', slug: 'netflix-1-user-yearly', billing_days: 365, usd_minor: 4999 });
     render(<Products />);
-    const terms = screen.getByRole('combobox', { name: 'Netflix billing plan' });
-    expect(within(terms).getAllByRole('option')).toHaveLength(3);
-    expect(within(terms).getByRole('option', { name: 'Quarterly (unavailable)' })).toBeDisabled();
-    fireEvent.change(terms, { target: { value: 'yearly' } });
+    const preferences = screen.getByRole('group', { name: 'Catalog preferences' });
+    const terms = within(preferences).getByRole('combobox', { name: 'Subscription duration' });
+    expect(within(preferences).getByRole('combobox', { name: 'Display currency' })).toBeInTheDocument();
+    expect(within(screen.getByRole('article')).queryByRole('combobox')).not.toBeInTheDocument();
+    expect(within(terms).getAllByRole('option')).toHaveLength(4);
+    fireEvent.change(terms, { target: { value: '365' } });
     expect(screen.getByText('USD 49.99')).toBeInTheDocument();
-    expect(terms).toHaveValue('yearly');
+    expect(terms).toHaveValue('365');
+    expect(screen.getByText('/ Yearly')).toBeVisible();
     expect(screen.getByText('Duration: Yearly (365 days)')).not.toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Add Netflix - 1 user to cart' }));
     expect(mocks.add).toHaveBeenCalledWith('yearly');
   });
 
-  it('shows all three standard durations without inventing unconfigured plans', () => {
+  it('shows all three standard durations and resets empty filters without inventing plans', () => {
     render(<Products />);
-    const terms = screen.getByRole('combobox', { name: 'Netflix billing plan' });
+    const terms = screen.getByRole('combobox', { name: 'Subscription duration' });
     expect(within(terms).getByRole('option', { name: 'Monthly' })).toBeEnabled();
-    expect(within(terms).getByRole('option', { name: 'Quarterly (unavailable)' })).toBeDisabled();
-    expect(within(terms).getByRole('option', { name: 'Yearly (unavailable)' })).toBeDisabled();
-    expect(terms).toHaveValue(single.id);
+    expect(within(terms).getByRole('option', { name: 'Quarterly' })).toBeEnabled();
+    expect(within(terms).getByRole('option', { name: 'Yearly' })).toBeEnabled();
+    expect(terms).toHaveValue('all');
+    fireEvent.change(terms, { target: { value: '90' } });
+    expect(screen.queryByRole('article')).not.toBeInTheDocument();
+    expect(screen.getByText('No plans match your filters.')).toBeVisible();
+    expect(mocks.add).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Show all plans' }));
+    expect(terms).toHaveValue('all');
+    expect(screen.getByRole('article')).toBeInTheDocument();
   });
 
   it('selects quarterly prices and preserves a yearly duration across option and currency changes', () => {
@@ -138,21 +148,26 @@ describe('grouped streaming plan cards', () => {
       { ...mail, id: 'mail-yearly', billing_days: 365, usd_minor: 9999, etb_minor: 1500000 },
     );
     const view = render(<Products />);
-    const terms = screen.getByRole('combobox', { name: 'Netflix billing plan' });
-    fireEvent.change(terms, { target: { value: 'quarterly' } });
+    const terms = screen.getByRole('combobox', { name: 'Subscription duration' });
+    fireEvent.change(terms, { target: { value: '90' } });
     expect(screen.getByText('USD 12.99')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Add Netflix - 1 user to cart' }));
     expect(mocks.add).toHaveBeenCalledWith('quarterly');
-    fireEvent.change(terms, { target: { value: 'yearly' } });
+    fireEvent.change(terms, { target: { value: '365' } });
     fireEvent.click(screen.getByRole('switch', { name: 'Netflix: On mail' }));
-    expect(terms).toHaveValue('mail-yearly');
+    expect(terms).toHaveValue('365');
     expect(screen.getByText('USD 99.99')).toBeInTheDocument();
     currency = 'ETB';
     view.rerender(<Products />);
-    expect(terms).toHaveValue('mail-yearly');
+    expect(terms).toHaveValue('365');
     expect(screen.getByText('ETB 15,000.00')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Add Netflix - On mail to cart' }));
     expect(mocks.add).toHaveBeenCalledWith('mail-yearly');
+    fireEvent.change(terms, { target: { value: '30' } });
+    expect(screen.getByRole('switch', { name: 'Netflix: On mail' })).toBeChecked();
+    expect(screen.getByText('ETB 1,950.00')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Add Netflix - On mail to cart' }));
+    expect(mocks.add).toHaveBeenLastCalledWith('mail');
   });
 
   it('warns before switching to another duration rather than stranding an option', () => {
@@ -160,37 +175,76 @@ describe('grouped streaming plan cards', () => {
     render(<Products />);
     expect(screen.getByText('On mail will use Yearly (365 days).')).toBeVisible();
     fireEvent.click(screen.getByRole('switch', { name: 'Netflix: On mail' }));
-    expect(screen.getByRole('combobox', { name: 'Netflix billing plan' })).toHaveValue(mail.id);
+    expect(screen.getByText('/ Yearly')).toBeVisible();
     expect(screen.getByText('1 user will use Monthly (30 days).')).toBeVisible();
+    const terms = screen.getByRole('combobox', { name: 'Subscription duration' });
+    fireEvent.change(terms, { target: { value: '30' } });
+    expect(screen.getByRole('switch', { name: 'Netflix: On mail' })).toBeDisabled();
+    expect(screen.getByText('On mail is not available.')).toBeVisible();
+    expect(screen.queryByText('/ Yearly')).not.toBeInTheDocument();
   });
 
-  it('disables durations using their own currency prices, stock and cart limits', () => {
+  it('disables purchases using the filtered plan currency price, stock and cart limits', () => {
     plans.push(
       { ...single, id: 'quarterly', billing_days: 90, etb_minor: null },
       { ...single, id: 'yearly', billing_days: 365, available: 0 },
     );
     currency = 'ETB';
     const view = render(<Products />);
-    const terms = screen.getByRole('combobox', { name: 'Netflix billing plan' });
-    expect(within(terms).getByRole('option', { name: /^Quarterly/ })).toBeDisabled();
-    expect(within(terms).getByRole('option', { name: /^Yearly/ })).toBeDisabled();
+    const terms = screen.getByRole('combobox', { name: 'Subscription duration' });
+    fireEvent.change(terms, { target: { value: '90' } });
+    expect(screen.getByRole('button', { name: 'Add Netflix - 1 user to cart' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Add Netflix - 1 user to cart' })).toHaveTextContent('Not priced');
     currency = 'USD';
     lines = [{ product: plans[2], qty: 5 }];
     view.rerender(<Products />);
-    expect(within(terms).getByRole('option', { name: /^Quarterly/ })).toBeDisabled();
-    expect(terms).toHaveValue(single.id);
+    expect(screen.getByRole('button', { name: 'Add Netflix - 1 user to cart' })).toHaveTextContent('Quantity limit reached');
+    fireEvent.change(terms, { target: { value: '365' } });
+    expect(screen.getByRole('button', { name: 'Add Netflix - 1 user to cart' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Add Netflix - 1 user to cart' })).toHaveTextContent('Out of stock');
+    expect(mocks.add).not.toHaveBeenCalled();
   });
 
-  it('retains custom durations and does not show billing choices for top-ups', () => {
-    plans = [{ ...single, billing_days: 45 }];
-    const view = render(<Products />);
-    const terms = screen.getByRole('combobox', { name: 'Netflix billing plan' });
+  it('filters all subscription cards together while keeping custom terms and top-ups accessible', () => {
+    plans = [
+      single, { ...single, id: 'custom', billing_days: 45 },
+      { ...single, id: 'standalone', name: 'Standalone', service_id: null, billing_days: 45 },
+      { ...single, id: 'game', name: 'Game', kind: 'topup', service_id: null, billing_days: 0, available: null },
+    ];
+    render(<Products />);
+    const terms = screen.getByRole('combobox', { name: 'Subscription duration' });
     expect(within(terms).getByRole('option', { name: '45 days' })).toBeEnabled();
-    expect(terms).toHaveValue(single.id);
-    plans = [{ ...single, kind: 'topup', service_id: null, available: null }];
-    view.rerender(<Products />);
-    expect(screen.queryByRole('combobox', { name: /billing plan/ })).not.toBeInTheDocument();
+    expect(within(terms).queryByRole('option', { name: '0 days' })).not.toBeInTheDocument();
+    fireEvent.change(terms, { target: { value: '45' } });
+    expect(screen.getAllByRole('article')).toHaveLength(3);
+    expect(screen.getAllByText('/ 45 days')).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: 'Add Netflix - 1 user to cart' }));
+    expect(mocks.add).toHaveBeenLastCalledWith('custom');
+    fireEvent.change(terms, { target: { value: '30' } });
+    expect(screen.queryByRole('heading', { name: 'Standalone' })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('article')).toHaveLength(2);
+    fireEvent.change(terms, { target: { value: '365' } });
+    expect(screen.getAllByRole('article')).toHaveLength(1);
     expect(screen.getByText('one-time')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Add Game to cart' }));
+    expect(mocks.add).toHaveBeenLastCalledWith('game');
+  });
+
+  it('combines duration with search and category filters and resets them together', () => {
+    plans.push({ ...single, id: 'yearly', billing_days: 365, featured: false, description: 'Yearly-only offer' });
+    render(<Products />);
+    const terms = screen.getByRole('combobox', { name: 'Subscription duration' });
+    fireEvent.change(terms, { target: { value: '365' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Streaming' }));
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'Yearly-only' } });
+    expect(screen.getByRole('article')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Featured' }));
+    expect(screen.queryByRole('article')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Show all plans' }));
+    expect(terms).toHaveValue('all');
+    expect(screen.getByRole('searchbox')).toHaveValue('');
+    expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('article')).toBeInTheDocument();
   });
 
   it('keeps cart limits independent for each option', () => {

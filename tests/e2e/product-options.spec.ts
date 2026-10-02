@@ -198,22 +198,40 @@ test('monthly quarterly and yearly selections persist the chosen durations and i
   const yearly = plans.find(plan => plan.option_code === 'on_mail' && plan.billing_days === 365)!;
   await page.goto('/#products');
   const card = page.getByRole('article').filter({ has: page.getByRole('heading', { name: 'Term service', exact: true }) });
-  const duration = card.getByRole('combobox', { name: 'Term service billing plan' });
-  await expect(duration).toHaveValue(plans.find(plan => plan.option_code === 'single_user' && plan.billing_days === 30)!.id);
+  const controls = page.getByRole('group', { name: 'Catalog preferences' });
+  const duration = controls.getByRole('combobox', { name: 'Subscription duration' });
+  await expect(duration).toHaveValue('all');
+  await expect(card.getByRole('combobox')).toHaveCount(0);
   await duration.selectOption({ label: 'Quarterly' });
   await expect(card.getByText('USD 12.99', { exact: true })).toBeVisible();
   await card.getByRole('button', { name: 'Add Term service - 1 user to cart' }).click();
   await duration.selectOption({ label: 'Yearly' });
   await card.getByRole('switch', { name: 'Term service: On mail' }).click();
-  await expect(duration).toHaveValue(yearly.id);
+  await expect(duration).toHaveValue('365');
   await expect(card.getByText('USD 49.99', { exact: true })).toBeVisible();
   for (const currency of ['USD', 'ETB']) {
     await page.getByLabel('Display currency').selectOption(currency);
     await page.setViewportSize({ width: 360, height: 1000 });
-    await expect(duration).toHaveValue(yearly.id);
+    await expect(duration).toHaveValue('365');
+    await expect(card.getByRole('switch', { name: 'Term service: On mail' })).toBeChecked();
     expect(await card.evaluate(element => element.getBoundingClientRect().height)).toBeLessThan(400);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
     await card.screenshot({ path: info.outputPath(`duration-card-${currency}.png`) });
+  }
+  for (const width of [1440, 360]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await controls.evaluate(element => element.scrollIntoView({ block: 'center' }));
+    await expect(duration).toBeInViewport();
+    expect(await duration.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      return element.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2));
+    })).toBe(true);
+    const controlsBox = await controls.boundingBox();
+    const searchBox = await page.getByRole('searchbox', { name: 'Search plans and brands' }).boundingBox();
+    if (!controlsBox || !searchBox) throw new Error('Catalog controls and search must be visible.');
+    expect(controlsBox.y + controlsBox.height).toBeLessThanOrEqual(searchBox.y);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+    await page.screenshot({ path: info.outputPath(`catalog-duration-${width}.png`) });
   }
   await page.getByLabel('Display currency').selectOption('USD');
   await card.getByRole('button', { name: 'Add Term service - On mail to cart' }).click();

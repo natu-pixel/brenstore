@@ -3,19 +3,25 @@ import { IconFlame, IconLayoutGrid, IconSearch, IconShoppingCart, IconSparkles, 
 import ProductCard from './ProductCard';
 import { useCart } from '../cart';
 import { groupPlans, optionSummary } from '../data/plan-options';
+import { billingLabel, billingTerms } from '../data/products';
 import { useResource } from '../features/api';
 import type { Currency } from '../features/api';
 
 export default function Products() {
   const [active, setActive] = useState('all');
   const [query, setQuery] = useState('');
+  const [billingDays, setBillingDays] = useState<number | null>(null);
   const { currency, setCurrency } = useCart();
   const catalog = useResource('catalog');
   const categories = useResource('public_categories');
+  const customTerms = [...new Set((catalog.data ?? [])
+    .filter(plan => plan.kind !== 'topup' && !billingTerms.some(term => term.days === plan.billing_days))
+    .map(plan => plan.billing_days))].sort((a, b) => a - b);
   const q = query.trim().toLowerCase();
   const shown = groupPlans(catalog.data ?? []).filter(group => group.plans.some(plan => {
     const matchesCategory = active === 'all' || (active === 'featured' ? plan.featured : plan.category_id === active);
-    return matchesCategory && (!q || [group.name, plan.name, plan.description, optionSummary(plan), plan.category_name ?? ''].some(value => value.toLowerCase().includes(q)));
+    const matchesDuration = billingDays === null || plan.kind === 'topup' || plan.billing_days === billingDays;
+    return matchesCategory && matchesDuration && (!q || [group.name, plan.name, plan.description, optionSummary(plan), plan.category_name ?? ''].some(value => value.toLowerCase().includes(q)));
   }));
 
   return (
@@ -24,11 +30,20 @@ export default function Products() {
         <span className="hero-eyebrow"><IconSparkles size={18} /> Shared plans · Clear pricing</span>
         <h2 className="products-title">Premium Subscriptions,<br /><span className="hero-accent">Split The Price</span></h2>
         <p className="products-sub">Discover shared plans with independently listed USD and ETB prices. Seats are allocated only after staff confirms payment.</p>
-        <label className="currency-selector">Display currency
-          <select value={currency} onChange={(e) => setCurrency(e.target.value as Currency)}>
-            <option value="USD">USD — US Dollar</option><option value="ETB">ETB — Ethiopian Birr</option>
-          </select>
-        </label>
+        <div className="catalog-controls" role="group" aria-label="Catalog preferences">
+          <label className="currency-selector">Display currency
+            <select value={currency} onChange={(e) => setCurrency(e.target.value as Currency)}>
+              <option value="USD">USD — US Dollar</option><option value="ETB">ETB — Ethiopian Birr</option>
+            </select>
+          </label>
+          <label className="currency-selector">Subscription duration
+            <select value={billingDays ?? 'all'} onChange={event => setBillingDays(event.target.value === 'all' ? null : Number(event.target.value))}>
+              <option value="all">All durations</option>
+              {billingTerms.map(term => <option key={term.days} value={term.days}>{term.label}</option>)}
+              {customTerms.map(days => <option key={days} value={days}>{billingLabel(days)}</option>)}
+            </select>
+          </label>
+        </div>
         <div className="product-search">
           <IconSearch size={20} className="search-icon" />
           <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search plans & brands" aria-label="Search plans and brands" />
@@ -48,9 +63,9 @@ export default function Products() {
           <div className="no-results"><IconShoppingCart size={40} /><p>No plans are published yet.</p><span>Check back soon — new plans will appear here when available.</span></div>
         ) : <>
           <div className="product-grid">
-            {shown.map(group => <ProductCard group={group} key={group.id} />)}
+            {shown.map(group => <ProductCard group={group} billingDays={billingDays} key={group.id} />)}
           </div>
-          {!shown.length && <div className="no-results"><IconSearch size={40} /><p>No plans match your filters.</p><button className="btn" onClick={() => { setQuery(''); setActive('all'); }}>Show all plans</button></div>}
+          {!shown.length && <div className="no-results"><IconSearch size={40} /><p>No plans match your filters.</p><button className="btn" onClick={() => { setQuery(''); setActive('all'); setBillingDays(null); }}>Show all plans</button></div>}
         </>}
       </div>
     </section>
