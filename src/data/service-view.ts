@@ -1,3 +1,4 @@
+import { MAX_QUANTITY } from '../cart';
 import type { Currency, Plan, Service, ServiceBadge } from '../features/api';
 import type { PlanGroup } from './plan-options';
 import { planPrice } from './products';
@@ -47,4 +48,30 @@ export function sortPlans(plans: Plan[]): Plan[] {
 
 export function serviceSummary(group: PlanGroup, service?: Service): string {
   return service?.tagline || service?.description || group.plans.find(plan => plan.description)?.description || '';
+}
+
+/** Why a plan cannot be added right now, or null when it can. Mirrors the cart's own limits. */
+export function blockedReason(plan: Plan, currency: Currency, qtyInCart: number): string | null {
+  if (plan.status !== 'active') return 'Unavailable';
+  if (planPrice(plan, currency) === null) return 'Not priced';
+  if (plan.kind !== 'topup' && (plan.available ?? 0) <= 0) return 'Sold out';
+  if (qtyInCart >= (plan.kind === 'topup' ? MAX_QUANTITY : Math.min(MAX_QUANTITY, plan.available ?? 0))) return 'Quantity limit reached';
+  return null;
+}
+
+/** Chip label for a billing term: 30 → "1 month", 90 → "3 months", 365 → "1 year". */
+export function durationLabel(days: number): string {
+  if (days % 365 === 0) return days === 365 ? '1 year' : `${days / 365} years`;
+  if (days % 30 === 0) return days === 30 ? '1 month' : `${days / 30} months`;
+  return days === 1 ? '1 day' : `${days} days`;
+}
+
+/** Chip key/label for the plan type: the 1 user / On mail option, otherwise the plan's own name. */
+export function planTypeKey(plan: Plan): string {
+  return plan.option_code ?? `plan:${plan.name}`;
+}
+export function planTypeLabel(plan: Plan, groupName: string): string {
+  if (plan.option_code === 'single_user') return '1 user';
+  if (plan.option_code === 'on_mail') return plan.users_included ? `On mail (${plan.users_included} users)` : 'On mail';
+  return plan.name === groupName ? 'Standard' : plan.name;
 }

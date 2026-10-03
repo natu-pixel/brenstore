@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { IconFlame, IconLayoutGrid, IconSearch, IconShoppingCart, IconSparkles, IconX } from '@tabler/icons-react';
 import ServiceCard from './ServiceCard';
+import { categoryIcon } from '../data/category-icons';
 import { groupPlans, optionSummary } from '../data/plan-options';
 import { useResource } from '../features/api';
 
-export default function Products() {
+/** `page` renders the dedicated /services catalog: short heading, then search, categories and cards. */
+export default function Products({ page = false }: { page?: boolean }) {
   const [active, setActive] = useState('all');
   const [query, setQuery] = useState('');
   const catalog = useResource('catalog');
@@ -20,22 +22,28 @@ export default function Products() {
   }));
 
   return (
-    <section className="products" id="products">
+    <section className={`products${page ? ' products-page' : ''}`} id="products">
       <div className="products-inner">
-        <span className="hero-eyebrow"><IconSparkles size={18} /> Shared plans · Clear pricing</span>
-        <h2 className="products-title">Premium Subscriptions,<br /><span className="hero-accent">Split The Price</span></h2>
-        <p className="products-sub">Discover shared plans with independently listed USD and ETB prices. Seats are allocated only after staff confirms payment.</p>
+        {page ? <>
+          <h1 className="products-page-title">All Services</h1>
+          <p className="products-sub">Browse our full catalog of premium digital services.</p>
+        </> : <>
+          <span className="hero-eyebrow"><IconSparkles size={18} /> Shared plans · Clear pricing</span>
+          <h2 className="products-title">Premium Subscriptions,<br /><span className="hero-accent">Split The Price</span></h2>
+          <p className="products-sub">Discover shared plans with independently listed USD and ETB prices. Seats are allocated only after staff confirms payment.</p>
+        </>}
         <div className="product-search">
           <IconSearch size={20} className="search-icon" />
           <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search plans & brands" aria-label="Search plans and brands" />
           {query && <button className="search-clear" onClick={() => setQuery('')} aria-label="Clear search"><IconX size={16} /></button>}
         </div>
         <div className="cat-filter" role="group" aria-label="Product categories">
-          <button aria-pressed={active === 'all'} className={'cat-pill' + (active === 'all' ? ' is-active' : '')} onClick={() => setActive('all')}><IconLayoutGrid size={18} /> All</button>
-          <button aria-pressed={active === 'featured'} className={'cat-pill pill-hot' + (active === 'featured' ? ' is-active' : '')} onClick={() => setActive('featured')}><IconFlame size={18} /> Featured</button>
-          {(categories.data ?? []).filter((category) => !category.archived).map((category) => (
-            <button key={category.id} aria-pressed={active === category.id} className={'cat-pill' + (active === category.id ? ' is-active' : '')} onClick={() => setActive(category.id)}><IconLayoutGrid size={18} />{category.name}</button>
-          ))}
+          <button aria-pressed={active === 'all'} className={'cat-pill' + (active === 'all' ? ' is-active' : '')} onClick={() => setActive('all')}><IconLayoutGrid size={18} aria-hidden="true" /><span>All</span></button>
+          <button aria-pressed={active === 'featured'} className={'cat-pill pill-hot' + (active === 'featured' ? ' is-active' : '')} onClick={() => setActive('featured')}><IconFlame size={18} aria-hidden="true" /><span>Featured</span></button>
+          {(categories.data ?? []).filter((category) => !category.archived).map((category) => {
+            const Icon = categoryIcon(category);
+            return <button key={category.id} aria-pressed={active === category.id} className={'cat-pill' + (active === category.id ? ' is-active' : '')} onClick={() => setActive(category.id)}><Icon size={18} aria-hidden="true" /><span>{category.name}</span></button>;
+          })}
         </div>
         {categories.isError && <p className="store-notice">Categories could not be loaded. You can still browse all plans. <button className="auth-switch" onClick={() => void categories.refetch()}>Retry categories</button></p>}
         {catalog.isPending ? <p className="store-state" role="status">Loading available plans…</p> : catalog.isError ? (

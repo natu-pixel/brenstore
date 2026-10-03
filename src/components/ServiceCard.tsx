@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { IconCrown, IconFlame, IconShoppingCart, IconStar } from '@tabler/icons-react';
 import { useCart } from '../cart';
@@ -6,6 +7,7 @@ import { badgeLabels, fromPrice, purchasable, serviceSummary, servicePath } from
 import type { Service, ServiceBadge } from '../features/contracts';
 import { formatMoney } from '../lib/money';
 import BrandLogo from './BrandLogo';
+import { PlanSheet } from './PlanPicker';
 
 const badgeIcons: Record<ServiceBadge, typeof IconStar> = { recommended: IconStar, popular: IconFlame, premium: IconCrown };
 
@@ -23,6 +25,7 @@ export function AvailabilityStatus({ available }: { available: boolean }) {
 
 export default function ServiceCard({ group, service }: { group: PlanGroup; service?: Service }) {
   const { currency } = useCart();
+  const [ordering, setOrdering] = useState(false);
   const plans = group.plans;
   const branding = plans[0] ?? group.plans[0];
   const href = servicePath(group);
@@ -47,11 +50,10 @@ export default function ServiceCard({ group, service }: { group: PlanGroup; serv
         <strong>{price === null ? 'Not priced' : formatMoney(price, currency)}</strong>
       </div>
       <div className="service-card-actions">
-        <Link className="service-button service-button-outline" to={href} aria-label={`View ${group.name} plans`}>View Plans</Link>
-        {available
-          ? <Link className="service-button service-button-primary" to={`${href}#plans`} aria-label={`Order ${group.name}`}><IconShoppingCart size={18} aria-hidden="true" />Order</Link>
-          : <button className="service-button service-button-primary" type="button" disabled aria-label={`Order ${group.name}`}><IconShoppingCart size={18} aria-hidden="true" />Order</button>}
+        <button className="service-button service-button-primary" type="button" disabled={!available} aria-label={`Order ${group.name}`}
+          onClick={() => setOrdering(true)}><IconShoppingCart size={18} aria-hidden="true" />Order</button>
       </div>
     </div>
+    {ordering && <PlanSheet group={group} onClose={() => setOrdering(false)} />}
   </article>;
 }

@@ -58,8 +58,15 @@ describe('service cards', () => {
     expect(within(card).getByText('Available')).toBeInTheDocument();
     expect(within(card).getByText('From')).toBeInTheDocument();
     expect(within(card).getByText('USD 4.99')).toBeInTheDocument();
-    expect(within(card).getByRole('link', { name: 'View Netflix plans' })).toHaveAttribute('href', '/services/netflix-service');
-    expect(within(card).getByRole('link', { name: 'Order Netflix' })).toHaveAttribute('href', '/services/netflix-service#plans');
+    expect(within(card).getByRole('link', { name: 'Netflix' })).toHaveAttribute('href', '/services/netflix-service');
+    expect(within(card).queryByRole('link', { name: /View .* plans/ })).not.toBeInTheDocument();
+    expect(within(card).getByRole('button', { name: 'Order Netflix' })).toBeEnabled();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    fireEvent.click(within(card).getByRole('button', { name: 'Order Netflix' }));
+    const sheet = screen.getByRole('dialog', { name: 'Netflix' });
+    expect(within(sheet).getByRole('radio', { name: '1 user' })).toHaveAttribute('aria-checked', 'true');
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(within(card).queryByRole('switch')).not.toBeInTheDocument();
   });
 
@@ -78,7 +85,7 @@ describe('service cards', () => {
     expect(screen.getByText('Currently Unavailable')).toBeInTheDocument();
     expect(screen.getByText('USD 4.99')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Order Netflix' })).toBeDisabled();
-    expect(screen.getByRole('link', { name: 'View Netflix plans' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Netflix' })).toBeInTheDocument();
   });
 
   it('falls back to plan copy without service details and links standalone plans by plan ID', () => {
@@ -88,7 +95,7 @@ describe('service cards', () => {
     renderProducts();
     expect(screen.getByText('One shared seat.')).toBeInTheDocument();
     expect(screen.queryByText('Recommended')).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'View Standalone plans' })).toHaveAttribute('href', '/services/plan-standalone');
+    expect(screen.getByRole('link', { name: 'Standalone' })).toHaveAttribute('href', '/services/plan-standalone');
   });
 
   it('has no in-page currency or duration dropdowns and prices cards from every term', () => {

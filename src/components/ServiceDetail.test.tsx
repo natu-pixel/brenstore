@@ -41,9 +41,12 @@ function renderDetail(key = 'netflix-service') {
   return render(<MemoryRouter initialEntries={[`/services/${key}`]}>
     <Routes><Route element={<Layout />}>
       <Route path="/services/:key" element={<ServiceDetail />} />
+      <Route path="/checkout" element={<p>Checkout page</p>} />
     </Route></Routes>
   </MemoryRouter>);
 }
+const radio = (name: string) => screen.getByRole('radio', { name: new RegExp(`${name}$`) });
+const price = () => document.querySelector('.plan-picker-price strong')?.textContent?.replace(/\s/g, ' ');
 
 beforeEach(() => {
   plans = [yearly, mail, single];
@@ -59,63 +62,85 @@ beforeEach(() => {
 });
 
 describe('service detail page', () => {
-  it('shows the service hero, every plan and the storefront details', () => {
+  it('shows the hero, a picker with duration and type chips, and the storefront details', () => {
     renderDetail();
     expect(screen.getByRole('heading', { level: 1, name: 'Netflix' })).toBeInTheDocument();
     expect(screen.getByText('Popular')).toBeInTheDocument();
     expect(screen.getByText('NETFLIX PREMIUM')).toBeInTheDocument();
     expect(screen.getByText('Movies and series.')).toBeInTheDocument();
     expect(screen.getByText('Available')).toBeInTheDocument();
-    const plansList = screen.getByRole('region', { name: 'Choose a Plan' });
-    expect(within(plansList).getAllByRole('listitem').map(item => item.querySelector('.service-plan-name')?.textContent))
-      .toEqual(['1 user · Monthly', 'On mail · Monthly', '1 user · Yearly']);
-    expect(within(plansList).getByText('USD 6.99').tagName).toBe('S');
-    expect(within(plansList).getByText('5 users per purchase')).toBeInTheDocument();
+    const picker = screen.getByRole('region', { name: 'Choose a Plan' });
+    expect(within(picker).getByRole('radiogroup', { name: 'Duration' })).toBeInTheDocument();
+    expect(within(within(picker).getByRole('radiogroup', { name: 'Duration' })).getAllByRole('radio').map(chip => chip.textContent))
+      .toEqual(['1 month', '1 year']);
+    expect(within(within(picker).getByRole('radiogroup', { name: 'Select type' })).getAllByRole('radio').map(chip => chip.textContent))
+      .toEqual(['1 user', 'On mail (5 users)']);
+    expect(radio('1 month')).toHaveAttribute('aria-checked', 'true');
+    expect(radio('1 user')).toHaveAttribute('aria-checked', 'true');
+    expect(price()).toBe('USD 4.99');
+    expect(within(picker).getByText('USD 6.99').tagName).toBe('S');
+    expect(within(picker).getByText('1 user · 1 month')).toBeInTheDocument();
+    expect(within(picker).getByText('5 in stock')).toBeInTheDocument();
     expect(within(screen.getByRole('region', { name: 'Features' })).getAllByRole('listitem')).toHaveLength(2);
     expect(within(screen.getByRole('region', { name: 'Requirements' })).getByText('A supported device')).toBeInTheDocument();
     expect(within(screen.getByRole('region', { name: 'Important Notes' })).getByText('Use your exact email.')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Back to services' })).toHaveAttribute('href', '/#products');
+    expect(screen.getByRole('link', { name: 'Back to services' })).toHaveAttribute('href', '/services');
   });
 
-  it('adds the exact plan and opens the cart when ordering', () => {
+  it('updates the price for the chosen type and duration, switching to an offered combination', () => {
     renderDetail();
-    fireEvent.click(screen.getByRole('button', { name: 'Order Netflix - On mail (Monthly)' }));
-    expect(mocks.add).toHaveBeenCalledWith('mail');
-    expect(mocks.openCart).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole('button', { name: 'Order Netflix - 1 user (Yearly)' }));
-    expect(mocks.add).toHaveBeenLastCalledWith('yearly');
-  });
-
-  it('marks only the cheapest plan per user per day as best value', () => {
-    renderDetail();
-    const best = screen.getByText('Best value').closest('li');
-    expect(best).not.toBeNull();
-    expect(within(best!).getByText('On mail · Monthly')).toBeInTheDocument();
-    expect(screen.getAllByText('Best value')).toHaveLength(1);
-  });
-
-  it('disables plans that are sold out, unpriced in the selected currency or at the cart limit', () => {
-    currency = 'ETB';
-    plans = [{ ...single, available: 0 }, { ...mail, etb_minor: null }, { ...yearly, available: 3 }];
-    lines = [{ product: plans[2], qty: 3 }];
-    renderDetail();
-    expect(screen.getByRole('button', { name: 'Order Netflix - 1 user (Monthly)' })).toHaveTextContent('Out of stock');
-    expect(screen.getByRole('button', { name: 'Order Netflix - On mail (Monthly)' })).toHaveTextContent('Not priced');
-    expect(screen.getByRole('button', { name: 'Order Netflix - 1 user (Yearly)' })).toHaveTextContent('Quantity limit reached');
-    for (const button of screen.getAllByRole('button', { name: /^Order / })) expect(button).toBeDisabled();
-    expect(screen.getByText('Available')).toBeInTheDocument();
+    fireEvent.click(radio('On mail \\(5 users\\)'));
+    expect(price()).toBe('USD 12.99');
+    expect(screen.getByText('Only 2 left')).toBeInTheDocument();
+    expect(screen.getByText('Best value')).toBeInTheDocument();
+    fireEvent.click(radio('1 year'));
+    expect(price()).toBe('USD 49.99');
+    expect(radio('1 user')).toHaveAttribute('aria-checked', 'true');
     expect(screen.queryByText('Best value')).not.toBeInTheDocument();
   });
 
-  it('hides empty sections and uses plan copy for standalone plans', () => {
+  it('adds the exact selected plan to the cart, or goes straight to checkout with Buy now', () => {
+    renderDetail();
+    fireEvent.click(radio('On mail \\(5 users\\)'));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Netflix - On mail to cart' }));
+    expect(mocks.add).toHaveBeenCalledWith('mail');
+    expect(mocks.openCart).toHaveBeenCalledTimes(1);
+    fireEvent.click(radio('1 year'));
+    fireEvent.click(screen.getByRole('button', { name: 'Buy Netflix - 1 user now' }));
+    expect(mocks.add).toHaveBeenLastCalledWith('yearly');
+    expect(screen.getByText('Checkout page')).toBeInTheDocument();
+  });
+
+  it('marks sold-out options, defaults to an available one and blocks unpriced or capped plans', () => {
+    plans = [{ ...single, available: 0 }, mail, { ...yearly, available: 3 }];
+    const view = renderDetail();
+    expect(radio('On mail \\(5 users\\)')).toHaveAttribute('aria-checked', 'true');
+    expect(radio('1 user')).toHaveTextContent('Sold out');
+    fireEvent.click(radio('1 user'));
+    expect(screen.getByRole('status')).toHaveTextContent('sold out');
+    expect(screen.getByRole('button', { name: /^Add .* to cart$/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /^Buy .* now$/ })).toBeDisabled();
+    view.unmount();
+
+    currency = 'ETB';
+    plans = [{ ...mail, etb_minor: null }, { ...yearly, available: 3 }];
+    lines = [{ product: plans[1], qty: 3 }];
+    renderDetail();
+    expect(screen.getByRole('status')).toHaveTextContent(/Not priced|Quantity limit reached/);
+    expect(mocks.add).not.toHaveBeenCalled();
+  });
+
+  it('hides empty sections and does not repeat the description for standalone plans', () => {
     plans = [{ ...single, id: 'solo', name: 'Solo plan', description: 'Standalone details', service_id: null,
       service_name: null, option_code: null, users_included: null }];
     renderDetail('plan-solo');
     expect(screen.getByRole('heading', { level: 1, name: 'Solo plan' })).toBeInTheDocument();
-    expect(screen.getByText('Standalone details')).toBeInTheDocument();
+    expect(screen.getAllByText('Standalone details')).toHaveLength(1);
     expect(screen.queryByRole('region', { name: 'Features' })).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Important Notes' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Order Solo plan (Monthly)' })).toBeEnabled();
+    expect(screen.queryByRole('radiogroup', { name: 'Select type' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Add Solo plan to cart' }));
+    expect(mocks.add).toHaveBeenCalledWith('solo');
   });
 
   it('explains unknown services and catalog errors', () => {

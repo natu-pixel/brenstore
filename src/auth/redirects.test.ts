@@ -5,7 +5,7 @@ describe('local auth redirect allowlist', () => {
   it.each(['https://evil.test', '//evil.test', '/\\evil.test', '/%2fevil.test', '/auth/callback', '/checkout?next=https://evil.test', '/admin/../auth', ' /checkout'])('rejects %s', (path) => {
     expect(safeReturnPath(path)).toBe('/');
   });
-  it.each(['/checkout', '/#products', '/orders', '/orders/10000000-0000-4000-8000-000000000001', '/admin/orders'])('preserves %s', (path) => {
+  it.each(['/checkout', '/#products', '/services', '/services/10000000-0000-4000-8000-000000000001', '/services/plan-10000000-0000-4000-8000-000000000001', '/orders', '/orders/10000000-0000-4000-8000-000000000001', '/admin/orders'])('preserves %s', (path) => {
     expect(safeReturnPath(path)).toBe(path);
   });
   it('uses local callback origin and preserves a checkout return path', () => {

@@ -218,7 +218,15 @@ test('storefront navigation stays on one row on phones and exposes all account a
     } else {
       await expect(openMenu).toBeHidden();
       await expect(navigation).toBeVisible();
+      const account = page.getByRole('button', { name: /^Account menu for / });
+      await expect(page.getByRole('link', { name: 'My orders', exact: true })).toBeHidden();
+      await account.click();
+      await expect(account).toHaveAttribute('aria-expanded', 'true');
       await expect(page.getByRole('link', { name: 'My orders', exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Sign out', exact: true })).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(page.getByRole('link', { name: 'My orders', exact: true })).toBeHidden();
+      await expect(account).toBeFocused();
     }
   }
   await page.setViewportSize({ width: 390, height: 900 });
@@ -273,17 +281,18 @@ test('guest phone navigation provides sign-in and hash links without a wrapping 
   const navigation = page.getByRole('navigation', { name: 'Store navigation' });
   await expect(navigation.getByRole('link', { name: 'Home', exact: true })).toBeFocused();
   await navigation.getByRole('link', { name: 'Products', exact: true }).click();
-  await expect(page).toHaveURL('http://127.0.0.1:5175/#products');
+  await expect(page).toHaveURL('http://127.0.0.1:5175/services');
   await expect(navigation).toBeHidden();
+  await expect(page.getByRole('heading', { level: 1, name: 'All Services' })).toBeVisible();
   expect(await page.locator('#products').evaluate(element => element.getBoundingClientRect().top)).toBeGreaterThanOrEqual(69);
   await toggle.click();
   await page.getByRole('link', { name: 'Sign in', exact: true }).click();
-  await expect(page).toHaveURL(/\/auth\?returnTo=/);
+  await expect(page).toHaveURL(/\/auth\?returnTo=%2Fservices/);
   await expect(navigation).toBeHidden();
   expect(await page.locator('header.nav').evaluate(element => element.getBoundingClientRect().height)).toBeLessThanOrEqual(80);
   await toggle.click();
   await page.goBack();
-  await expect(page).toHaveURL('http://127.0.0.1:5175/#products');
+  await expect(page).toHaveURL('http://127.0.0.1:5175/services');
   await expect(navigation).toBeHidden();
   await page.goForward();
   await expect(navigation).toBeHidden();

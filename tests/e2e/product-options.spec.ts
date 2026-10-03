@@ -33,17 +33,12 @@ async function signIn(page: Page, account: BrowserAccount, target: string) {
   await expect(page).toHaveURL(`http://127.0.0.1:5175${target}`);
 }
 
-async function setRegion(page: Page, country: string, currency: 'USD' | 'ETB') {
-  await page.getByRole('button', { name: /Change region and currency/ }).click();
-  const panel = page.getByRole('dialog', { name: 'Region and currency' });
-  await panel.getByLabel('Ship to').selectOption(country);
-  await expect(panel.getByLabel('Currency')).toHaveValue(country === 'ET' ? 'ETB' : 'USD');
-  await panel.getByLabel('Currency').selectOption(currency);
-  await panel.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(panel).not.toBeVisible();
-  const trigger = page.getByRole('button', { name: /Change region and currency/ });
-  await expect(trigger).toHaveAccessibleName(new RegExp(`currency ${currency}\\.`));
-  await expect(trigger.locator(`img.region-flag[data-country="${country}"]`)).toBeVisible();
+async function setRegion(page: Page, country: 'ET' | 'US', currency: 'USD' | 'ETB') {
+  const flag = page.getByRole('button', { name: country === 'ET' ? /Ethiopian Birr/ : /US Dollar/ });
+  await flag.click();
+  await expect(flag).toHaveAttribute('aria-pressed', 'true');
+  await expect(flag.locator(`img.region-flag[data-country="${country}"]`)).toBeVisible();
+  expect(currency).toBe(country === 'ET' ? 'ETB' : 'USD');
 }
 
 test('admin service relationships create one compact card and preserve exact purchase snapshots', async ({ page, browser }, info) => {
@@ -144,13 +139,35 @@ test('admin service relationships create one compact card and preserve exact pur
       await card.screenshot({ path: info.outputPath(`netflix-card-${width}.png`) });
     }
     await shop.setViewportSize({ width: 1440, height: 1000 });
-    await card.getByRole('link', { name: 'Order Netflix' }).click();
-    await expect(shop).toHaveURL(`http://127.0.0.1:5175/services/${single.service_id}#plans`);
+    // Order on the card opens the picker sheet over the catalog.
+    await card.getByRole('button', { name: 'Order Netflix' }).click();
+    const sheet = shop.getByRole('dialog', { name: 'Netflix' });
+    await expect(sheet.getByRole('radio', { name: '1 user' })).toHaveAttribute('aria-checked', 'true');
+    await expect(sheet.locator('.plan-picker-price strong')).toHaveText(/USD\s*4\.99/);
+    await sheet.getByRole('radio', { name: /^On mail/ }).click();
+    await expect(sheet.locator('.plan-picker-price strong')).toHaveText(/USD\s*12\.99/);
+    for (const width of [1440, 360]) {
+      await shop.setViewportSize({ width, height: 900 });
+      const box = await sheet.boundingBox();
+      const overlay = await shop.locator('.plan-sheet-backdrop').boundingBox();
+      if (!box || !overlay) throw new Error('The plan sheet must be visible.');
+      expect(overlay).toMatchObject({ x: 0, y: 0, width, height: 900 });
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(width + 1);
+      expect(box.width).toBeGreaterThanOrEqual(Math.min(width, 560) - 41);
+      await expect(sheet.getByRole('button', { name: /^Buy .* now$/ })).toBeInViewport();
+      await shop.screenshot({ path: info.outputPath(`netflix-sheet-${width}.png`) });
+    }
+    await shop.setViewportSize({ width: 1440, height: 1000 });
+    await shop.keyboard.press('Escape');
+    await expect(sheet).toBeHidden();
+    await card.getByRole('link', { name: 'Netflix', exact: true }).click();
+    await expect(shop).toHaveURL(`http://127.0.0.1:5175/services/${single.service_id}`);
     const choose = shop.getByRole('region', { name: 'Choose a Plan' });
-    await expect(choose.getByText('USD 12.99', { exact: true })).toBeVisible();
+    await expect(choose.locator('.plan-picker-price strong')).toHaveText(/USD\s*4\.99/);
     await expect(shop.getByRole('region', { name: 'Features' }).getByRole('listitem')).toHaveText(['HD streaming', 'Any supported device']);
     await expect(shop.getByRole('region', { name: 'Important Notes' })).toContainText('Provide your exact email address.');
-    await shop.getByRole('button', { name: 'Order Netflix - 1 user (Monthly)' }).click();
+    await choose.getByRole('button', { name: 'Add Netflix - 1 user to cart' }).click();
     const cart = shop.getByRole('dialog', { name: /Your Cart/ });
     await expect(cart.getByText('Netflix - 1 user', { exact: true })).toBeVisible();
     await cart.getByRole('button', { name: 'Close cart' }).click();
@@ -160,7 +177,8 @@ test('admin service relationships create one compact card and preserve exact pur
       await shop.screenshot({ path: info.outputPath(`netflix-detail-${width}.png`), fullPage: true });
     }
     await shop.setViewportSize({ width: 1440, height: 1000 });
-    await shop.getByRole('button', { name: 'Order Netflix - On mail (Monthly)' }).click();
+    await choose.getByRole('radio', { name: /^On mail/ }).click();
+    await choose.getByRole('button', { name: 'Add Netflix - On mail to cart' }).click();
     await expect(cart.getByText('Netflix - 1 user', { exact: true })).toBeVisible();
     await expect(cart.getByText('Netflix - On mail', { exact: true })).toBeVisible();
     await cart.getByRole('button', { name: 'Checkout', exact: true }).click();
@@ -236,21 +254,24 @@ test('monthly quarterly and yearly selections persist the chosen durations and i
     expect(await card.evaluate(element => element.getBoundingClientRect().height)).toBeLessThan(560);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
     await page.evaluate(() => window.scrollTo(0, 0));
-    await page.getByRole('button', { name: /Change region and currency/ }).click();
-    const panel = page.getByRole('dialog', { name: 'Region and currency' });
-    const box = await panel.boundingBox();
-    if (!box) throw new Error('The region panel must be visible.');
+    const flags = page.getByRole('group', { name: 'Price currency' });
+    const box = await flags.boundingBox();
+    if (!box) throw new Error('The currency flags must be visible.');
     expect(box.x).toBeGreaterThanOrEqual(0);
     expect(box.x + box.width).toBeLessThanOrEqual(width);
+    await expect(page.getByRole('combobox')).toHaveCount(0);
     await page.screenshot({ path: info.outputPath(`region-picker-${width}.png`) });
-    await page.keyboard.press('Escape');
-    await expect(panel).not.toBeVisible();
   }
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await card.getByRole('link', { name: 'View Term service plans' }).click();
-  await page.getByRole('button', { name: 'Order Term service - 1 user (Quarterly)' }).click();
+  await card.getByRole('link', { name: 'Term service', exact: true }).click();
+  const picker = page.getByRole('region', { name: 'Choose a Plan' });
+  await picker.getByRole('radio', { name: '3 months' }).click();
+  await picker.getByRole('button', { name: 'Add Term service - 1 user to cart' }).click();
   await page.getByRole('button', { name: 'Close cart' }).click();
-  await page.getByRole('button', { name: 'Order Term service - On mail (Yearly)' }).click();
+  await picker.getByRole('radio', { name: '1 year' }).click();
+  await picker.getByRole('radio', { name: /^On mail/ }).click();
+  await expect(picker.locator('.plan-picker-price strong')).toHaveText(/USD\s*49\.99/);
+  await picker.getByRole('button', { name: 'Add Term service - On mail to cart' }).click();
   const cart = page.getByRole('dialog', { name: /Your Cart/ });
   const singleDuration = cart.getByRole('combobox', { name: 'Term service - 1 user duration' });
   const mailDuration = cart.getByRole('combobox', { name: 'Term service - On mail duration' });

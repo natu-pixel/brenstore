@@ -1,103 +1,35 @@
-import { useEffect, useId, useRef, useState } from 'react';
-import { IconChevronDown, IconX } from '@tabler/icons-react';
+import { useEffect, useState } from 'react';
+import etFlag from 'flag-icons/flags/4x3/et.svg';
+import usFlag from 'flag-icons/flags/4x3/us.svg';
 import { useCart } from '../cart';
-import { CURRENCIES } from '../data/currency';
-import type { Currency } from '../features/api';
-import { COUNTRIES, countryName, currencyForCountry, detectCountry, readCountry, saveCountry } from '../lib/region';
+import { currencyForCountry, detectCountry, readCountry, saveCountry } from '../lib/region';
+import type { Country } from '../lib/region';
 
-const currencyNames: Record<Currency, string> = { USD: 'US Dollar', ETB: 'Ethiopian Birr' };
+const OPTIONS: { country: Country; flag: string; label: string }[] = [
+  { country: 'ET', flag: etFlag, label: 'Ethiopian Birr (ETB)' },
+  { country: 'US', flag: usFlag, label: 'US Dollar (USD)' },
+];
 
-// Each flag is emitted as its own file and fetched only when shown; Windows does not render flag emoji.
-const flagUrls = import.meta.glob<string>('/node_modules/flag-icons/flags/4x3/*.svg', {
-  eager: true, query: '?url&no-inline', import: 'default',
-});
-function flagUrl(country: string) {
-  return flagUrls[`/node_modules/flag-icons/flags/4x3/${country.toLowerCase()}.svg`];
-}
-
-function Flag({ country }: { country: string }) {
-  const src = flagUrl(country);
-  return src ? <img className="region-flag" src={src} alt="" width={24} height={18} data-country={country} /> : null;
-}
-
-export default function RegionPicker({ onOpen }: { onOpen?: () => void }) {
+// Two flags, one tap: Ethiopia shows ETB prices, United States shows USD prices. Windows does not render flag emoji.
+export default function RegionPicker() {
   const { currency, setCurrency } = useCart();
-  const [country, setCountry] = useState(() => readCountry() ?? detectCountry());
-  const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState({ country, currency });
-  const root = useRef<HTMLDivElement>(null);
-  const button = useRef<HTMLButtonElement>(null);
-  const panelId = useId();
+  const [detected] = useState(() => readCountry() ?? detectCountry());
 
-  // First visit: remember the detected country and apply its default currency once.
+  // First visit only: remember the detected country and apply its currency.
   useEffect(() => {
     if (readCountry()) return;
-    saveCountry(country);
-    setCurrency(currencyForCountry(country));
-  }, [country, setCurrency]);
+    saveCountry(detected);
+    setCurrency(currencyForCountry(detected));
+  }, [detected, setCurrency]);
 
-  useEffect(() => {
-    if (!open) return;
-    root.current?.querySelector<HTMLSelectElement>('select')?.focus();
-    const outside = (event: Event) => {
-      if (event.target instanceof Node && !root.current?.contains(event.target)) setOpen(false);
-    };
-    const escape = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
-      event.preventDefault();
-      setOpen(false);
-      button.current?.focus();
-    };
-    document.addEventListener('pointerdown', outside);
-    document.addEventListener('keydown', escape);
-    return () => {
-      document.removeEventListener('pointerdown', outside);
-      document.removeEventListener('keydown', escape);
-    };
-  }, [open]);
-
-  function toggle() {
-    if (!open) { setDraft({ country, currency }); onOpen?.(); }
-    setOpen(!open);
-  }
-  function save() {
-    setCountry(draft.country);
-    saveCountry(draft.country);
-    setCurrency(draft.currency);
-    setOpen(false);
-    button.current?.focus();
-  }
-
-  return <div className="region-picker" ref={root}>
-    <button ref={button} type="button" className="region-trigger" aria-expanded={open} aria-controls={panelId}
-      aria-label={`Ship to ${countryName(country)}, currency ${currency}. Change region and currency`} onClick={toggle}>
-      <Flag country={country} />
-      <span className="region-currency">{currency}</span>
-      <IconChevronDown size={14} aria-hidden="true" className="region-chevron" />
-    </button>
-    {open && <div className="region-panel" id={panelId} role="dialog" aria-label="Region and currency">
-      <div className="region-panel-head">
-        <strong>Region &amp; currency</strong>
-        <button type="button" className="region-close" aria-label="Close region settings" onClick={() => setOpen(false)}><IconX size={18} /></button>
-      </div>
-      <label>Ship to
-        <span className="region-select-flag">
-          <Flag country={draft.country} />
-          <select value={draft.country} onChange={event => {
-            const next = event.target.value;
-            setDraft({ country: next, currency: currencyForCountry(next) });
-          }}>
-            {COUNTRIES.map(item => <option key={item.code} value={item.code}>{item.name}</option>)}
-          </select>
-        </span>
-      </label>
-      <label>Currency
-        <select value={draft.currency} onChange={event => setDraft(previous => ({ ...previous, currency: event.target.value as Currency }))}>
-          {CURRENCIES.map(code => <option key={code} value={code}>{code} — {currencyNames[code]}</option>)}
-        </select>
-      </label>
-      <p className="region-note">USD and ETB prices are set separately; no exchange-rate conversion is applied.</p>
-      <button type="button" className="btn region-save" onClick={save}>Save</button>
-    </div>}
+  return <div className="region-picker" role="group" aria-label="Price currency">
+    {OPTIONS.map(option => {
+      const active = currencyForCountry(option.country) === currency;
+      return <button key={option.country} type="button" className={`region-flag-button${active ? ' is-active' : ''}`}
+        aria-pressed={active} aria-label={`Show prices in ${option.label}`} title={option.label}
+        onClick={() => { saveCountry(option.country); setCurrency(currencyForCountry(option.country)); }}>
+        <img className="region-flag" src={option.flag} alt="" width={24} height={18} data-country={option.country} />
+      </button>;
+    })}
   </div>;
 }

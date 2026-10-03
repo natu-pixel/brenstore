@@ -84,14 +84,11 @@ test('admin catalog edits, checkout and manual fulfillment persist in PostgreSQL
   const shop = await customerContext.newPage();
   try {
     await shop.goto('/#products');
-    await shop.getByRole('button', { name: /Change region and currency/ }).click();
-    const region = shop.getByRole('dialog', { name: 'Region and currency' });
-    await region.getByLabel('Ship to').selectOption('ET');
-    await region.getByRole('button', { name: 'Save', exact: true }).click();
+    await shop.getByRole('button', { name: /Ethiopian Birr/ }).click();
     const premium = shop.getByRole('article').filter({ hasText: 'Premium monthly' });
     await expect(premium).toContainText(/ETB\s*850\.00/);
-    await premium.getByRole('link', { name: 'Order Premium monthly' }).click();
-    await shop.getByRole('button', { name: /^Order Premium monthly \(/ }).click();
+    await premium.getByRole('button', { name: 'Order Premium monthly' }).click();
+    await shop.getByRole('dialog', { name: 'Premium monthly' }).getByRole('button', { name: 'Add Premium monthly to cart' }).click();
     await expect(shop.getByRole('dialog', { name: /Your Cart/ }).getByText('Premium monthly', { exact: true })).toBeVisible();
     await shop.goto('/checkout');
     await expect(shop).toHaveURL('http://127.0.0.1:5175/auth?returnTo=%2Fcheckout');
@@ -197,9 +194,9 @@ test('a new three-seat cart is separate from the previous order and payment cons
   const orderCount = async () => z.object({ total: z.number() }).parse(await database.read('my_orders', {}, buyer.id)).total;
 
   await signIn(page, buyer, '/');
-  await page.getByRole('link', { name: 'Order Repeat checkout plan' }).click();
-  await page.getByRole('button', { name: 'Order Repeat checkout plan (Monthly)' }).click();
-  await page.goto('/checkout');
+  await page.getByRole('button', { name: 'Order Repeat checkout plan' }).click();
+  await page.getByRole('dialog', { name: 'Repeat checkout plan' }).getByRole('button', { name: 'Buy Repeat checkout plan now' }).click();
+  await expect(page).toHaveURL('http://127.0.0.1:5175/checkout');
   await page.getByLabel('Full name', { exact: true }).fill('Repeat checkout customer');
   await page.getByLabel('Phone', { exact: true }).fill('+251911234567');
   await page.getByRole('button', { name: 'Place pending order' }).click();
@@ -209,7 +206,7 @@ test('a new three-seat cart is separate from the previous order and payment cons
 
   await page.goto(`/services/plan-${planId}`);
   for (let index = 0; index < 3; index++) {
-    await page.getByRole('button', { name: 'Order Repeat checkout plan (Monthly)' }).click();
+    await page.getByRole('button', { name: 'Add Repeat checkout plan to cart' }).click();
     await page.getByRole('button', { name: 'Close cart' }).click();
   }
   await expect(page.getByRole('button', { name: 'Open cart (3 items)' })).toBeVisible();
@@ -353,6 +350,7 @@ test('store navigation omits admin links while direct staff access remains prote
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
     if (width === 390) await page.getByRole('button', { name: 'Open navigation menu' }).click();
+    else await page.getByRole('button', { name: /^Account menu for / }).click();
     await expect(page.getByRole('link', { name: 'My orders', exact: true })).toBeVisible();
     await expect(page.locator('a[href^="/admin"]')).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'Admin', exact: true })).toHaveCount(0);
@@ -369,6 +367,7 @@ test('store navigation omits admin links while direct staff access remains prote
   await expect(page.getByRole('navigation', { name: 'Administration', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible();
   await page.getByRole('link', { name: 'Visit storefront' }).click();
+  await page.getByRole('button', { name: /^Account menu for / }).click();
   await page.getByRole('button', { name: 'Sign out', exact: true }).click();
   await expect(page.getByRole('link', { name: 'Sign in', exact: true })).toBeVisible();
 

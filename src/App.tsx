@@ -2,9 +2,9 @@ import '@fontsource/oswald/400.css';
 import '@fontsource/oswald/500.css';
 import '@fontsource/oswald/600.css';
 import '@fontsource/oswald/700.css';
-import { IconBrandTelegram, IconChevronRight, IconChevronsRight, IconCreditCard, IconHeadset, IconHome, IconLayoutGrid, IconMenu2, IconShoppingCart, IconX } from '@tabler/icons-react';
+import { IconBrandTelegram, IconChevronDown, IconChevronRight, IconChevronsRight, IconCreditCard, IconHeadset, IconHome, IconLayoutGrid, IconLogout, IconMenu2, IconReceipt, IconShoppingCart, IconUser, IconX } from '@tabler/icons-react';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { Link, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import Auth from './components/Auth';
 import AuthCallback from './auth/AuthCallback';
 import { useAuth } from './auth/AuthProvider';
@@ -98,20 +98,16 @@ function StoreLayout() {
         <div id="store-navigation" className={`nav-panel${menuOpen ? ' is-open' : ''}`} ref={menuPanel}>
           <nav className="nav-links" aria-label="Store navigation">
             <Link to="/" onClick={() => setMenuOpen(false)}><IconHome size={18} /> Home</Link>
-            <Link to="/#products" onClick={() => setMenuOpen(false)}><IconLayoutGrid size={18} /> Products</Link>
+            <Link to="/services" onClick={() => setMenuOpen(false)}><IconLayoutGrid size={18} /> Products</Link>
             <Link to="/#support" onClick={() => setMenuOpen(false)}><IconHeadset size={18} /> Support</Link>
           </nav>
           <div className="nav-account">
-            {user ? <>
-              <Link className="account-link" to="/orders" onClick={() => setMenuOpen(false)}>My orders</Link>
-              <button className="user-chip" disabled={signingOut} onClick={() => void logout()} aria-label="Sign out">
-                <span className="user-avatar">{(user.email?.[0] ?? 'B').toUpperCase()}</span>
-                <span className="user-meta"><b>{user.email?.split('@')[0] ?? 'Account'}</b><small>{signingOut ? 'Signing out…' : 'Sign out'}</small></span>
-              </button>
-            </> : <Link className="btn nav-cta" to={signInPath(signInReturn)} onClick={() => setMenuOpen(false)}>{loading ? 'Checking account…' : 'Sign in'}<IconChevronsRight size={18} className="chev" /></Link>}
+            {user ? <AccountMenu email={user.email ?? ''} signingOut={signingOut} onSignOut={() => void logout()} onNavigate={() => setMenuOpen(false)} />
+              : <Link className="btn nav-cta nav-signin" to={signInPath(signInReturn)} onClick={() => setMenuOpen(false)} aria-label={loading ? 'Checking account…' : 'Sign in'} title="Sign in">
+                <IconUser size={20} aria-hidden="true" /><span className="nav-signin-text">{loading ? 'Checking account…' : 'Sign in'}</span><IconChevronsRight size={18} className="chev" aria-hidden="true" /></Link>}
           </div>
         </div>
-        <RegionPicker onOpen={() => setMenuOpen(false)} />
+        <RegionPicker />
         <button className="btn nav-cta nav-cart" onClick={() => { setMenuOpen(false); setCartOpen(true); }} aria-label={`Open cart (${count} items)`}><IconShoppingCart size={19} />{count > 0 && <span className="cart-badge">{count}</span>}</button>
         <button className="btn nav-menu-button" ref={menuButton} onClick={() => setMenuOpen(open => !open)}
           aria-label={menuOpen ? 'Close navigation menu' : 'Open navigation menu'} aria-expanded={menuOpen} aria-controls="store-navigation">
@@ -124,6 +120,52 @@ function StoreLayout() {
       <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} onCheckout={() => { setCartOpen(false); navigate('/checkout'); }} />
     </div>
   );
+}
+
+// Desktop: avatar opens a small menu. Inside the phone navigation panel the items are always listed.
+function AccountMenu({ email, signingOut, onSignOut, onNavigate }: {
+  email: string; signingOut: boolean; onSignOut: () => void; onNavigate: () => void;
+}) {
+  const location = useLocation();
+  const [open, setOpen] = useState(false);
+  const [openedAt, setOpenedAt] = useState(location.key);
+  const root = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const name = email.split('@')[0] || 'Account';
+  if (open && openedAt !== location.key) setOpen(false);
+  useEffect(() => {
+    if (!open) return;
+    const outside = (event: Event) => {
+      if (event.target instanceof Node && !root.current?.contains(event.target)) setOpen(false);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      setOpen(false);
+      trigger.current?.focus();
+    };
+    document.addEventListener('pointerdown', outside);
+    document.addEventListener('keydown', escape);
+    return () => {
+      document.removeEventListener('pointerdown', outside);
+      document.removeEventListener('keydown', escape);
+    };
+  }, [open]);
+  return <div className="account-menu" ref={root}>
+    <button ref={trigger} type="button" className="user-chip account-trigger" aria-expanded={open} aria-controls="account-menu-items"
+      aria-label={`Account menu for ${name}`} onClick={() => { setOpenedAt(location.key); setOpen(value => !value); }}>
+      <span className="user-avatar">{(email[0] ?? 'B').toUpperCase()}</span>
+      <span className="user-meta"><b>{name}</b><small>Account</small></span>
+      <IconChevronDown size={16} aria-hidden="true" className="account-chevron" />
+    </button>
+    <div id="account-menu-items" className={`account-dropdown${open ? ' is-open' : ''}`}>
+      <span className="account-email" title={email}>{email}</span>
+      <Link className="account-link" to="/orders" onClick={() => { setOpen(false); onNavigate(); }}><IconReceipt size={18} aria-hidden="true" />My orders</Link>
+      <button type="button" className="account-signout" disabled={signingOut} onClick={() => { setOpen(false); onSignOut(); }}>
+        <IconLogout size={18} aria-hidden="true" />{signingOut ? 'Signing out…' : 'Sign out'}
+      </button>
+    </div>
+  </div>;
 }
 
 function Home() {
@@ -169,7 +211,7 @@ export default function App() {
     <Route element={<ProtectedRoute staff />}><Route path="/admin/*" element={<AdminRoutes />} /></Route>
     <Route element={<StoreLayout />}>
       <Route index element={<Home />} />
-      <Route path="/services" element={<Navigate to="/#products" replace />} />
+      <Route path="/services" element={<main><Products page /></main>} />
       <Route path="/services/:key" element={<ServiceDetail />} />
       <Route path="/auth" element={<Auth key="sign-in" />} />
       <Route path="/auth/recovery" element={<Auth key="recovery" />} />
