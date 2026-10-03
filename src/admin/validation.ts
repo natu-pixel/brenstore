@@ -1,5 +1,38 @@
-import type { Input, OptionCode, Plan, PlanKind } from '../features/api';
+import type { Input, OptionCode, Plan, PlanKind, Service, ServiceBadge } from '../features/api';
 import { parseMoney, priceInput } from '../lib/money';
+
+export type ServiceDetailsForm = {
+  badge: ServiceBadge | ''; tagline: string; description: string;
+  features: string; requirements: string; notes: string;
+};
+
+export function serviceDetailsForm(service?: Service): ServiceDetailsForm {
+  return {
+    badge: service?.badge ?? '', tagline: service?.tagline ?? '', description: service?.description ?? '',
+    features: (service?.features ?? []).join('\n'), requirements: (service?.requirements ?? []).join('\n'),
+    notes: service?.notes ?? '',
+  };
+}
+
+function listInput(value: string, label: string): string[] {
+  const items = value.split('\n').map(item => item.trim()).filter(Boolean);
+  if (items.length > 30) throw new Error(`${label} can have at most 30 lines.`);
+  if (items.some(item => item.length > 300)) throw new Error(`Each ${label.toLowerCase()} line must be at most 300 characters.`);
+  return items;
+}
+
+export function serviceDetailsInput(form: ServiceDetailsForm, id: string): Input {
+  const tagline = form.tagline.trim();
+  const description = form.description.trim();
+  const notes = form.notes.trim();
+  if (tagline.length > 160) throw new Error('The tagline must be at most 160 characters.');
+  if (description.length > 4000) throw new Error('The description must be at most 4,000 characters.');
+  if (notes.length > 2000) throw new Error('Important notes must be at most 2,000 characters.');
+  return {
+    id, badge: form.badge || null, tagline, description, notes,
+    features: listInput(form.features, 'Features'), requirements: listInput(form.requirements, 'Requirements'),
+  };
+}
 
 export type PlanForm = {
   name: string; slug: string; description: string; category_id: string; brand_key: string;

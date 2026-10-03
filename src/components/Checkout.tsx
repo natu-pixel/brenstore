@@ -262,6 +262,7 @@ export function OrderPage() {
     {!validId ? <p className="auth-error" role="alert">Invalid order link.</p> : order.isPending ? <p role="status">Loading your saved order…</p> : order.isError && !detail ? <><h1 className="auth-title">Order unavailable</h1><p className="auth-error" role="alert">{order.error.message}</p><button className="btn" disabled={order.isFetching} onClick={() => void order.refetch()}>Retry order</button></> : detail && <>
       <h1 className="auth-title">Saved Order</h1>
       <p className="auth-sub">Reference <code className="order-id">{detail.order.reference}</code></p>
+      <p>Ordered via {detail.order.source === 'telegram' ? 'Telegram' : 'website'}</p>
       {order.isError && <p className="auth-error" role="alert">Could not refresh this order: {order.error.message} Showing the last saved status; it may be out of date. Retry using Refresh order status.</p>}
       <dl className="order-facts"><div><dt>Order status</dt><dd>{orderStatusLabels[detail.order.status]}</dd></div><div><dt>Payment</dt><dd>{paymentStatusLabels[detail.order.payment_status]}</dd></div><div><dt>Placed</dt><dd>{new Date(detail.order.created_at).toLocaleString()}</dd></div></dl>
       <OrderProgress detail={detail} />
@@ -332,9 +333,10 @@ export function MyOrders() {
   return <section className="auth"><div className="auth-card checkout-card">
     <h1 className="auth-title">My Orders</h1>
     <CustomerProfile />
+    <Link className="auth-guest" to="/account/telegram">Manage Telegram connection</Link>
     {orders.isError && <p className="auth-error" role="alert">Orders unavailable: {orders.error.message}{orders.data ? ' Showing the last saved list; it may be out of date.' : ''}</p>}
     {orders.isPending ? <p role="status">Loading orders…</p> : orders.data && (!orders.data.rows.length ? <p>No orders yet. <Link to="/#products">Find your first plan</Link>.</p> : <>
-      <ul className="customer-orders">{orders.data.rows.map((order) => <li key={order.id}><Link to={`/orders/${order.id}`}><strong>{order.reference}</strong><span>{new Date(order.created_at).toLocaleDateString()} · {orderStatusLabels[order.status]} · Payment: {paymentStatusLabels[order.payment_status]}</span><b>{formatMoney(order.total_minor, order.currency)}</b></Link></li>)}</ul>
+      <ul className="customer-orders">{orders.data.rows.map((order) => <li key={order.id}><Link to={`/orders/${order.id}`}><strong>{order.reference}</strong><span>{new Date(order.created_at).toLocaleDateString()} · {orderStatusLabels[order.status]} · Payment: {paymentStatusLabels[order.payment_status]} · {order.source === 'telegram' ? 'Telegram' : 'Website'}</span><b>{formatMoney(order.total_minor, order.currency)}</b></Link></li>)}</ul>
       <div className="order-pagination"><button className="auth-switch" disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</button><span>Page {page} · {orders.data.total} orders</span><button className="auth-switch" disabled={page * 10 >= orders.data.total} onClick={() => setPage(page + 1)}>Next</button></div>
     </>)}
     <button className="auth-guest" disabled={orders.isFetching} onClick={() => void orders.refetch()}>{orders.isFetching ? 'Refreshing…' : orders.isError ? 'Retry orders' : 'Refresh orders'}</button>

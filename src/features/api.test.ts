@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { DatabaseError, getMyRole, inviteStaff, readResource, runCommand } from './api';
+import { DatabaseError, getMyRole, inviteStaff, readResource, runCommand, telegramOperation } from './api';
 
 const { rpc, invoke } = vi.hoisted(() => ({ rpc: vi.fn(), invoke: vi.fn() }));
 vi.mock('../supabase', () => ({
@@ -46,5 +46,25 @@ describe('typed database boundary', () => {
       },
     });
     await expect(inviteStaff('staff@example.test', 'manager')).rejects.toThrow('Only an active Owner');
+  });
+  it('explains invitations blocked by the allowed website address instead of a generic fetch error', async () => {
+    const blocked = Object.assign(new Error('Failed to send a request to the Edge Function'), { name: 'FunctionsFetchError', context: new TypeError('Failed to fetch') });
+    invoke.mockResolvedValue({ data: null, error: blocked });
+    await expect(inviteStaff('staff@example.test', 'manager')).rejects.toThrow(`could not be reached from ${window.location.origin}`);
+  });
+  it('keeps the generic error when a failed function reply is not JSON', async () => {
+    invoke.mockResolvedValue({ data: null, error: Object.assign(new Error('Edge Function returned a non-2xx status code'), {
+      context: new Response('<html>Bad gateway</html>', { status: 502 }),
+    }) });
+    await expect(inviteStaff('staff@example.test', 'manager')).rejects.toThrow('non-2xx');
+  });
+  it('validates Telegram RPC responses and surfaces database failures', async () => {
+    rpc.mockResolvedValue({ data: { linked: false, connection: null }, error: null });
+    expect(await telegramOperation('status')).toEqual({ linked: false, connection: null });
+    expect(rpc).toHaveBeenCalledWith('bren_telegram', { op: 'status', input: {} });
+    rpc.mockResolvedValue({ data: { state: 'connected' }, error: null });
+    await expect(telegramOperation('approve', { token: 'a'.repeat(43) })).rejects.toThrow();
+    rpc.mockResolvedValue({ data: null, error: { code: 'PT410', message: 'Link expired.' } });
+    await expect(telegramOperation('preview', { token: 'a'.repeat(43) })).rejects.toEqual(new DatabaseError('Link expired.', 'PT410'));
   });
 });

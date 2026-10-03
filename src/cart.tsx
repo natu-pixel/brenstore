@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { z } from 'zod';
 import { currencySchema, planSchema, useResource } from './features/api';
 import type { Currency, Plan } from './features/api';
-import { planPrice } from './data/products';
+import { billingLabel, planPrice } from './data/products';
 import { optionChanged } from './data/plan-options';
 
 export const CART_KEY = 'brenstore.cart.v1';
@@ -23,6 +23,7 @@ export interface CartLine extends StoredLine {
   unitMinor: number | null;
   errors: string[];
   canIncrease: boolean;
+  durations: Plan[];
 }
 const emptyCart = (): CartState => ({ version: 1, currency: 'USD', items: [] });
 
@@ -49,7 +50,49 @@ export function cartLine(item: StoredLine, catalog: Plan[] | undefined, currency
     ...item, current, unitMinor, errors,
     canIncrease: errors.length === 0 && item.qty < MAX_QUANTITY
       && (current?.kind === 'topup' || item.qty < (current?.available ?? 0)),
+    durations: catalogError ? [] : durationChoices(item, catalog, currency),
   };
+}
+
+// Durations are distinct sellable plans; only the same service, option and package size are interchangeable.
+export function durationChoices(item: StoredLine, catalog: Plan[] | undefined, currency: Currency): Plan[] {
+  const current = catalog?.find((plan) => plan.id === item.product.id);
+  if (!catalog || !current || current.status !== 'active' || current.kind !== 'seat'
+    || !current.service_id || !current.option_code || optionChanged(item.product, current)) return [];
+  return catalog.filter((plan) => plan.status === 'active' && plan.kind === 'seat'
+    && plan.service_id === current.service_id && plan.option_code === current.option_code
+    && (plan.users_included ?? null) === (current.users_included ?? null)
+    && planPrice(plan, currency) !== null)
+    .sort((a, b) => a.billing_days - b.billing_days || a.id.localeCompare(b.id));
+}
+
+export function durationSeatsNeeded(state: Pick<CartState, 'items'>, fromId: string, target: Plan): number {
+  const source = state.items.find((item) => item.product.id === fromId)?.qty ?? 0;
+  const existing = target.id === fromId ? 0 : state.items.find((item) => item.product.id === target.id)?.qty ?? 0;
+  return source + existing;
+}
+
+export function changeCartDuration(state: CartState, id: string, targetId: string, catalog: Plan[] | undefined): CartState {
+  const item = state.items.find((line) => line.product.id === id);
+  if (!item) throw new Error('This plan is no longer in your cart.');
+  if (targetId === id) return state;
+  const target = durationChoices(item, catalog, state.currency).find((plan) => plan.id === targetId);
+  if (!target) throw new Error('That duration is not available for this option. Refresh the catalog and choose another.');
+  const existing = state.items.find((line) => line.product.id === targetId);
+  if (existing && planPrice(existing.product, state.currency) !== planPrice(target, state.currency)) {
+    throw new Error(`Review the changed ${billingLabel(target.billing_days)} price in your cart before combining lines.`);
+  }
+  if (existing && optionChanged(existing.product, target)) throw new Error('The purchase option has changed. Remove this plan and add it again to review the current package.');
+  const qty = durationSeatsNeeded(state, id, target);
+  const cap = Math.min(MAX_QUANTITY, target.available ?? 0);
+  if (qty > cap) throw new Error(cap <= 0
+    ? `${billingLabel(target.billing_days)} is sold out.`
+    : `${billingLabel(target.billing_days)} allows at most ${cap} ${cap === 1 ? 'seat' : 'seats'}${existing ? ' including the matching line already in your cart' : ''}. Reduce the quantity first.`);
+  const items = state.items.flatMap((line) => line.product.id === targetId ? []
+    : line.product.id === id ? [{ product: target, qty }] : [line]);
+  const total = items.reduce((sum, line) => sum + (planPrice(line.product, state.currency) ?? 0) * line.qty, 0);
+  if (!Number.isSafeInteger(total)) throw new Error('The cart total exceeds the supported monetary amount.');
+  return { ...state, items };
 }
 
 export function addCartItem(state: CartState, plan: Plan): CartState {
@@ -86,6 +129,7 @@ interface CartApi {
   add: (id: string) => void;
   setQty: (id: string, qty: number) => void;
   acceptPrice: (id: string) => void;
+  changeDuration: (id: string, planId: string) => void;
   remove: (id: string) => void;
   clear: () => void;
   clearPurchased: (items: { plan_id: string; qty: number; unit_minor: number }[], currency: Currency) => void;
@@ -151,6 +195,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const plan = catalog.data?.find((item) => item.id === id && item.status === 'active');
       if (!plan || catalog.isError) throw new Error('Reload the catalog before accepting a price.');
       return { ...current, items: current.items.map((item) => item.product.id === id ? { ...item, product: plan } : item) };
+    }),
+    changeDuration: (id, planId) => update((current) => {
+      if (!catalog.data || catalog.isError) throw new Error('Reload the catalog before changing the duration.');
+      return changeCartDuration(current, id, planId, catalog.data);
     }),
     remove: (id) => update((current) => ({ ...current, items: current.items.filter((line) => line.product.id !== id) })),
     clear: () => update((current) => ({ ...current, items: [] })),

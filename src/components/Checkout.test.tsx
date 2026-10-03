@@ -27,7 +27,7 @@ const plan: Plan = {
   featured: false, updated_at: '2026-01-01T00:00:00Z', kind: 'seat',
 };
 const detail: OrderDetail = {
-  order: { id: orderId, reference: 'BRN-TEST', customer_id: customerId, customer_name: 'Test Customer', phone: '+251900000000', telegram: '@test', currency: 'USD', total_minor: 499, status: 'pending', payment_status: 'pending', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' },
+  order: { source: 'website', id: orderId, reference: 'BRN-TEST', customer_id: customerId, customer_name: 'Test Customer', phone: '+251900000000', telegram: '@test', currency: 'USD', total_minor: 499, status: 'pending', payment_status: 'pending', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' },
   items: [{ id: '40000000-0000-4000-8000-000000000001', plan_id: planId, name: 'Test plan', description: 'Shared test plan', qty: 1, unit_minor: 499, billing_days: 30, player_id: null }],
   events: [], payment: null, deliveries: [],
 };

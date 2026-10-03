@@ -4,7 +4,7 @@ import '@fontsource/oswald/600.css';
 import '@fontsource/oswald/700.css';
 import { IconBrandTelegram, IconChevronRight, IconChevronsRight, IconCreditCard, IconHeadset, IconHome, IconLayoutGrid, IconMenu2, IconShoppingCart, IconX } from '@tabler/icons-react';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { Link, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import Auth from './components/Auth';
 import AuthCallback from './auth/AuthCallback';
 import { useAuth } from './auth/AuthProvider';
@@ -17,11 +17,15 @@ import { useCart } from './cart';
 import FloatingLogos from './components/FloatingLogos';
 import HeroAvatar from './components/HeroAvatar';
 import Products from './components/Products';
+import RegionPicker from './components/RegionPicker';
+import ServiceDetail from './components/ServiceDetail';
+import type { StoreOutletContext } from './components/ServiceDetail';
 import LiveSupportChat from './components/LiveSupportChat';
 import { useResource } from './features/api';
 import './App.css';
 
 const AdminRoutes = lazy(() => import('./admin/AdminRoutes'));
+const TelegramConnection = lazy(() => import('./components/TelegramConnection'));
 
 function StoreLayout() {
   const location = useLocation();
@@ -90,7 +94,7 @@ function StoreLayout() {
   return (
     <div className="page">
       <header className="nav" ref={header}><div className="nav-inner">
-        <Link className="brand" to="/" onClick={() => setMenuOpen(false)}><span className="brand-mark">B</span><span className="brand-name">{settings.data?.store_name || 'Brenstore'}</span></Link>
+        <Link className="brand" to="/" onClick={() => setMenuOpen(false)}><img className="brand-mark" src="/brand-mark.png" alt="" width={38} height={38} /><span className="brand-name">{settings.data?.store_name || 'Brenstore'}</span></Link>
         <div id="store-navigation" className={`nav-panel${menuOpen ? ' is-open' : ''}`} ref={menuPanel}>
           <nav className="nav-links" aria-label="Store navigation">
             <Link to="/" onClick={() => setMenuOpen(false)}><IconHome size={18} /> Home</Link>
@@ -107,6 +111,7 @@ function StoreLayout() {
             </> : <Link className="btn nav-cta" to={signInPath(signInReturn)} onClick={() => setMenuOpen(false)}>{loading ? 'Checking account…' : 'Sign in'}<IconChevronsRight size={18} className="chev" /></Link>}
           </div>
         </div>
+        <RegionPicker onOpen={() => setMenuOpen(false)} />
         <button className="btn nav-cta nav-cart" onClick={() => { setMenuOpen(false); setCartOpen(true); }} aria-label={`Open cart (${count} items)`}><IconShoppingCart size={19} />{count > 0 && <span className="cart-badge">{count}</span>}</button>
         <button className="btn nav-menu-button" ref={menuButton} onClick={() => setMenuOpen(open => !open)}
           aria-label={menuOpen ? 'Close navigation menu' : 'Open navigation menu'} aria-expanded={menuOpen} aria-controls="store-navigation">
@@ -115,7 +120,7 @@ function StoreLayout() {
       </div></header>
       {signOutError && <p className="auth-error store-banner" role="alert">{signOutError}</p>}
       {cartError && <div className="auth-error store-banner" role="alert">{cartError} <button className="auth-switch" onClick={dismissError}>Dismiss</button></div>}
-      <Outlet />
+      <Outlet context={{ openCart: () => setCartOpen(true) } satisfies StoreOutletContext} />
       <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} onCheckout={() => { setCartOpen(false); navigate('/checkout'); }} />
     </div>
   );
@@ -164,11 +169,15 @@ export default function App() {
     <Route element={<ProtectedRoute staff />}><Route path="/admin/*" element={<AdminRoutes />} /></Route>
     <Route element={<StoreLayout />}>
       <Route index element={<Home />} />
+      <Route path="/services" element={<Navigate to="/#products" replace />} />
+      <Route path="/services/:key" element={<ServiceDetail />} />
       <Route path="/auth" element={<Auth key="sign-in" />} />
       <Route path="/auth/recovery" element={<Auth key="recovery" />} />
       <Route path="/auth/update-password" element={<Auth key="new-password" />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
       <Route element={<ProtectedRoute />}>
+        <Route path="/account/telegram" element={<TelegramConnection />} />
+        <Route path="/account/telegram/link/:token" element={<TelegramConnection />} />
         <Route path="/checkout" element={<Checkout />} />
         <Route path="/orders" element={<MyOrders />} />
         <Route path="/orders/:id" element={<OrderPage />} />

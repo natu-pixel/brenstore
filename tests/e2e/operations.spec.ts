@@ -84,9 +84,15 @@ test('admin catalog edits, checkout and manual fulfillment persist in PostgreSQL
   const shop = await customerContext.newPage();
   try {
     await shop.goto('/#products');
-    await shop.getByLabel('Display currency').selectOption('ETB');
-    await expect(shop.getByRole('article').filter({ hasText: 'Premium monthly' })).toContainText(/ETB\s*850\.00/);
-    await shop.getByRole('button', { name: 'Add Premium monthly to cart' }).click();
+    await shop.getByRole('button', { name: /Change region and currency/ }).click();
+    const region = shop.getByRole('dialog', { name: 'Region and currency' });
+    await region.getByLabel('Ship to').selectOption('ET');
+    await region.getByRole('button', { name: 'Save', exact: true }).click();
+    const premium = shop.getByRole('article').filter({ hasText: 'Premium monthly' });
+    await expect(premium).toContainText(/ETB\s*850\.00/);
+    await premium.getByRole('link', { name: 'Order Premium monthly' }).click();
+    await shop.getByRole('button', { name: /^Order Premium monthly \(/ }).click();
+    await expect(shop.getByRole('dialog', { name: /Your Cart/ }).getByText('Premium monthly', { exact: true })).toBeVisible();
     await shop.goto('/checkout');
     await expect(shop).toHaveURL('http://127.0.0.1:5175/auth?returnTo=%2Fcheckout');
     await completeSignIn(shop, customer);
@@ -191,7 +197,8 @@ test('a new three-seat cart is separate from the previous order and payment cons
   const orderCount = async () => z.object({ total: z.number() }).parse(await database.read('my_orders', {}, buyer.id)).total;
 
   await signIn(page, buyer, '/');
-  await page.getByRole('button', { name: 'Add Repeat checkout plan to cart' }).click();
+  await page.getByRole('link', { name: 'Order Repeat checkout plan' }).click();
+  await page.getByRole('button', { name: 'Order Repeat checkout plan (Monthly)' }).click();
   await page.goto('/checkout');
   await page.getByLabel('Full name', { exact: true }).fill('Repeat checkout customer');
   await page.getByLabel('Phone', { exact: true }).fill('+251911234567');
@@ -200,8 +207,11 @@ test('a new three-seat cart is separate from the previous order and payment cons
   const firstId = z.string().uuid().parse(new URL(page.url()).pathname.split('/').at(-1));
   expect((await inventory())?.available).toBe(5);
 
-  await page.goto('/#products');
-  for (let index = 0; index < 3; index++) await page.getByRole('button', { name: 'Add Repeat checkout plan to cart' }).click();
+  await page.goto(`/services/plan-${planId}`);
+  for (let index = 0; index < 3; index++) {
+    await page.getByRole('button', { name: 'Order Repeat checkout plan (Monthly)' }).click();
+    await page.getByRole('button', { name: 'Close cart' }).click();
+  }
   await expect(page.getByRole('button', { name: 'Open cart (3 items)' })).toBeVisible();
   await page.getByRole('button', { name: 'Open cart (3 items)' }).click();
   await expect(page.getByRole('dialog', { name: /Your Cart/ }).locator('.qty-stepper b')).toHaveText('3');
@@ -219,7 +229,7 @@ test('a new three-seat cart is separate from the previous order and payment cons
   }
   expect(await orderCount()).toBe(1);
   await page.getByRole('button', { name: 'Review this cart', exact: true }).click();
-  await expect(page.getByText(/3 × USD\s*4\.99 · 30 days/)).toBeVisible();
+  await expect(page.getByText(/3 × USD\s*4\.99 · Monthly \(30 days\)/)).toBeVisible();
   await page.getByLabel('Full name', { exact: true }).fill('Repeat checkout customer');
   await page.getByLabel('Phone', { exact: true }).fill('+251911234567');
   expect(await orderCount()).toBe(1);
@@ -251,8 +261,8 @@ test('a new three-seat cart is separate from the previous order and payment cons
     await expect(row.getByRole('cell').nth(1)).toHaveText('5');
     await expect(row.getByRole('cell').nth(2)).toHaveText('3');
     await expect(row.getByRole('cell').nth(3)).toHaveText('2');
-    await page.goto('/#products');
-    await expect(page.getByRole('article').filter({ hasText: 'Repeat checkout plan' })).toContainText('2 seats available');
+    await page.goto(`/services/plan-${planId}`);
+    await expect(page.getByRole('region', { name: 'Choose a Plan' })).toContainText('2 in stock');
     expect(await inventory()).toMatchObject({ capacity: 5, allocated: 3, available: 2 });
   } finally {
     await staffContext.close();
@@ -408,5 +418,6 @@ test('category service choices fill branding only and save the chosen logo when 
   await page.goto('/#products');
   const card = page.getByRole('article').filter({ has: page.getByRole('heading', { name: 'Netflix', exact: true }) });
   await expect(card.locator('.brand-tile svg path')).toHaveAttribute('d', siNetflix.path);
-  await expect(card.getByRole('button', { name: 'Add Netflix to cart' })).toBeDisabled();
+  await expect(card.getByText('Currently Unavailable', { exact: true })).toBeVisible();
+  await expect(card.getByRole('button', { name: 'Order Netflix' })).toBeDisabled();
 });

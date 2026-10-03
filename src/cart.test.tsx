@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { addCartItem, CART_KEY, CartProvider, cartLine, parseCart, useCart } from './cart';
+import { addCartItem, CART_KEY, CartProvider, cartLine, changeCartDuration, durationChoices, parseCart, useCart } from './cart';
 import type { CartState } from './cart';
 import type { Plan } from './features/api';
 
@@ -113,5 +113,75 @@ describe('persistent catalog-backed cart', () => {
     first.unmount();
     render(<CartProvider><Probe /></CartProvider>);
     expect(screen.getByTestId('count')).toHaveTextContent('1');
+  });
+});
+
+describe('changing duration inside the cart', () => {
+  const service = '20000000-0000-4000-8000-000000000001';
+  const term = (id: string, days: number, usd: number, overrides: Partial<Plan> = {}): Plan => ({
+    ...plan, id: `10000000-0000-4000-8000-0000000001${id}`, slug: `term-${id}`, name: `Netflix ${days}`,
+    billing_days: days, usd_minor: usd, service_id: service, service_name: 'Netflix',
+    option_code: 'single_user', users_included: 1, ...overrides,
+  });
+  const monthly = term('01', 30, 499);
+  const quarterly = term('02', 90, 1299);
+  const yearly = term('03', 365, 4499, { available: 2 });
+  const onMail = term('04', 90, 1999, { option_code: 'on_mail', users_included: 5 });
+  const otherService = term('05', 90, 999, { service_id: '20000000-0000-4000-8000-000000000002' });
+  const unpricedEtb = term('06', 180, 2499, { etb_minor: null });
+  const standalone = { ...plan, id: '10000000-0000-4000-8000-000000000199', billing_days: 90 };
+  const catalog = [yearly, onMail, quarterly, monthly, otherService, unpricedEtb, standalone];
+  const cart = (items: { product: Plan; qty: number }[], currency: CartState['currency'] = 'USD'): CartState => ({ version: 1, currency, items });
+
+  it('offers only priced durations of the same service, option and package size, sorted by length', () => {
+    const line = { product: monthly, qty: 1 };
+    expect(durationChoices(line, catalog, 'USD').map((option) => option.id)).toEqual([monthly.id, quarterly.id, unpricedEtb.id, yearly.id]);
+    expect(durationChoices(line, catalog, 'ETB').map((option) => option.id)).toEqual([monthly.id, quarterly.id, yearly.id]);
+    expect(durationChoices({ product: standalone, qty: 1 }, catalog, 'USD')).toEqual([]);
+    expect(durationChoices({ product: { ...monthly, option_code: null, users_included: null }, qty: 1 }, [{ ...monthly, option_code: null, users_included: null }], 'USD')).toEqual([]);
+    expect(durationChoices(line, [{ ...monthly, users_included: 2 }, quarterly], 'USD')).toEqual([]);
+    expect(cartLine(line, catalog, 'USD', true).durations).toEqual([]);
+  });
+
+  it('switches to the catalog plan, keeps quantity and position, and uses its own price', () => {
+    const next = changeCartDuration(cart([{ product: standalone, qty: 1 }, { product: monthly, qty: 2 }]), monthly.id, quarterly.id, catalog);
+    expect(next.items.map((item) => [item.product.id, item.qty])).toEqual([[standalone.id, 1], [quarterly.id, 2]]);
+    expect(cartLine(next.items[1], catalog, 'USD')).toMatchObject({ unitMinor: 1299, errors: [] });
+  });
+
+  it('combines with an existing line for the chosen duration within limits', () => {
+    const next = changeCartDuration(cart([{ product: monthly, qty: 2 }, { product: quarterly, qty: 3 }]), monthly.id, quarterly.id, catalog);
+    expect(next.items).toEqual([{ product: quarterly, qty: 5 }]);
+    expect(() => changeCartDuration(cart([{ product: monthly, qty: 5 }, { product: quarterly, qty: 5 }]), monthly.id, quarterly.id, catalog)).toThrow('at most 9');
+  });
+
+  it('rejects unavailable, foreign, sold-out, and stale-price targets without changing the cart', () => {
+    const state = cart([{ product: monthly, qty: 3 }]);
+    expect(() => changeCartDuration(state, monthly.id, yearly.id, catalog)).toThrow('at most 2 seats');
+    expect(() => changeCartDuration(state, monthly.id, onMail.id, catalog)).toThrow('not available');
+    expect(() => changeCartDuration(state, monthly.id, otherService.id, catalog)).toThrow('not available');
+    expect(() => changeCartDuration(state, monthly.id, quarterly.id, [monthly, { ...quarterly, available: 0 }])).toThrow('sold out');
+    expect(() => changeCartDuration(cart([{ product: monthly, qty: 1 }, { product: { ...quarterly, usd_minor: 999 }, qty: 1 }]), monthly.id, quarterly.id, catalog)).toThrow('changed');
+    expect(() => changeCartDuration(cart([{ product: monthly, qty: 1 }], 'ETB'), monthly.id, unpricedEtb.id, catalog)).toThrow('not available');
+    expect(changeCartDuration(state, monthly.id, monthly.id, catalog)).toBe(state);
+  });
+
+  it('persists the change from the provider and reports blocked changes', () => {
+    resource.mockReturnValue({ data: catalog, isError: false, isFetching: false });
+    localStorage.setItem(CART_KEY, JSON.stringify(cart([{ product: monthly, qty: 3 }])));
+    function Probe() {
+      const cartApi = useCart();
+      return <><span data-testid="line">{cartApi.lines.map((line) => `${line.product.billing_days}:${line.qty}:${line.unitMinor}`).join()}</span>
+        <button onClick={() => cartApi.changeDuration(monthly.id, quarterly.id)}>Quarterly</button>
+        <button onClick={() => cartApi.changeDuration(quarterly.id, yearly.id)}>Yearly</button>
+        <p>{cartApi.error}</p></>;
+    }
+    render(<CartProvider><Probe /></CartProvider>);
+    fireEvent.click(screen.getByText('Quarterly'));
+    expect(screen.getByTestId('line')).toHaveTextContent('90:3:1299');
+    expect(parseCart(localStorage.getItem(CART_KEY)).items[0].product.id).toBe(quarterly.id);
+    fireEvent.click(screen.getByText('Yearly'));
+    expect(screen.getByTestId('line')).toHaveTextContent('90:3:1299');
+    expect(screen.getByText(/at most 2 seats/)).toBeInTheDocument();
   });
 });

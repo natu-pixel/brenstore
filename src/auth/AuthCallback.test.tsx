@@ -15,12 +15,13 @@ vi.mock('./redirects', () => ({ authLink: link }));
 beforeEach(() => {
   initialize.mockReset().mockResolvedValue({ error: null });
   state.user = { id: 'customer' }; state.loading = false;
-  link.type = null; link.hasCredentials = true;
+  link.type = null; link.hasCredentials = true; link.returnTo = '/checkout';
 });
 function setup() {
   render(<MemoryRouter initialEntries={['/auth/callback?code=test']}><Routes>
     <Route path="/auth/callback" element={<AuthCallback />} />
     <Route path="/checkout" element={<p>Restored checkout</p>} />
+    <Route path="/account/telegram/link/:token" element={<p>Restored Telegram connection</p>} />
     <Route path="/auth/update-password" element={<p>Choose password</p>} />
   </Routes></MemoryRouter>);
 }
@@ -35,6 +36,11 @@ describe('auth callback validation', () => {
     setup();
     expect(await screen.findByText('Email link is invalid or has expired')).toBeInTheDocument();
     expect(screen.queryByText('Restored checkout')).not.toBeInTheDocument();
+  });
+  it('returns a verified signup session to its Telegram linking request', async () => {
+    link.returnTo = `/account/telegram/link/${'a'.repeat(43)}`;
+    setup();
+    expect(await screen.findByText('Restored Telegram connection')).toBeInTheDocument();
   });
   it.each(['recovery', 'invite'])('lets a verified %s session set a password', async (type) => {
     link.type = type;

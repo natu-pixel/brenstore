@@ -12,6 +12,7 @@ const customerId = '20000000-0000-4000-8000-000000000001';
 const createdAt = '2026-01-01T00:00:00Z';
 const initial: OrderDetail = {
   order: {
+    source: 'website',
     id: orderId, reference: 'BRN-TRACKING', customer_id: customerId, customer_name: 'Tracking customer',
     phone: '+251900000000', telegram: '', currency: 'USD', total_minor: 1497,
     status: 'pending', payment_status: 'pending', created_at: createdAt, updated_at: createdAt,

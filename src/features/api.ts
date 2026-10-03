@@ -2,8 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UseQueryOptions } from '@tanstack/react-query';
 import { z } from 'zod';
 import { supabase, supabaseConfigurationError } from '../supabase';
-import { DatabaseError, resourceSchemas, roleSchema, topupPackageSchema, topupProcessSchema } from './contracts';
-import type { Action, Input, Resource, ResourceData, Role, TopupPackage, TopupProcessResult } from './contracts';
+import { DatabaseError, resourceSchemas, roleSchema, topupPackageSchema, topupProcessSchema, telegramSchemas } from './contracts';
+import type { Action, Input, Resource, ResourceData, Role, TopupPackage, TopupProcessResult, TelegramOperation, TelegramResult } from './contracts';
 export * from './contracts';
 
 export function client() {
@@ -20,7 +20,13 @@ export async function readResource<R extends Resource>(resource: R, args: Input 
 export async function runCommand(action: Action, input: Input = {}) {
   const { data, error } = await client().rpc('bren_mutate', { action, input });
   if (error) throw new DatabaseError(error.message, error.code);
-  return z.object({ id: z.string().optional() }).parse(data);
+  return z.object({ id: z.string().optional(), account_deleted: z.boolean().optional() }).parse(data);
+}
+
+export async function telegramOperation<O extends TelegramOperation>(op: O, input: Input = {}): Promise<TelegramResult[O]> {
+  const { data, error } = await client().rpc('bren_telegram', { op, input });
+  if (error) throw new DatabaseError(error.message, error.code);
+  return telegramSchemas[op].parse(data) as TelegramResult[O];
 }
 
 export async function getMyRole(): Promise<Role | null> {
@@ -55,9 +61,14 @@ export function useCommand() {
 
 async function rethrowFunctionError(error: unknown): Promise<never> {
   if (error && typeof error === 'object' && 'context' in error && error.context instanceof Response) {
-    const body: unknown = await error.context.json();
+    const body: unknown = await error.context.json().catch(() => null);
     const detail = z.object({ message: z.string() }).safeParse(body);
     if (detail.success) throw new Error(detail.data.message);
+  }
+  // The browser hides the server's reply when this site's address is not the function's allowed APP_ORIGIN.
+  if (error && typeof error === 'object' && 'name' in error && error.name === 'FunctionsFetchError') {
+    const here = typeof window === 'undefined' ? 'this address' : window.location.origin;
+    throw new Error(`The server could not be reached from ${here}. Use the store's live address (the APP_ORIGIN configured in Supabase), or check your connection, then try again.`);
   }
   throw error instanceof Error ? error : new Error(String(error));
 }

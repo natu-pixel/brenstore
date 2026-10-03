@@ -67,23 +67,57 @@ function StaffEditor({ staff, onClose }: { staff: Staff; onClose: () => void }) 
       {command.error && <ErrorNotice error={command.error} />}</fieldset><FormFooter busy={command.isPending} label="Save staff access" /></form></Dialog>;
 }
 
+function RemoveStaffDialog({ staff, onClose, onRemoved }: { staff: Staff; onClose: () => void; onRemoved: (message: string) => void }) {
+  const [confirmed, setConfirmed] = useState(false);
+  const command = useCommand();
+  const who = staff.email || staff.name || 'this team member';
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (!confirmed || command.isPending) return;
+    try {
+      const result = await command.mutateAsync({ action: 'remove_staff', input: { id: staff.id, email: staff.email } });
+      onRemoved(result.account_deleted
+        ? `Removed ${who}. The pending invitation was cancelled; you can invite this email again.`
+        : `Removed ${who} from the team. Their sign-in remains as a customer account.`);
+      onClose();
+    } catch { /* Mutation error is rendered below. */ }
+  }
+  return <Dialog title={`Remove ${who}`} onClose={onClose} dirty={confirmed} busy={command.isPending}>
+    <form onSubmit={submit}><fieldset className="admin-dialog-body" disabled={command.isPending}>
+      <p>{staff.pending
+        ? 'This invitation has not been accepted yet. Removing it cancels the invitation: the email link stops working and the unused account is deleted, unless it already has store history.'
+        : 'This immediately removes all administration access. Their sign-in, orders and activity history are kept, so they can still shop as a customer.'}</p>
+      <p className="admin-muted">To pause access temporarily instead, use Manage and turn off “Staff access is active”. The last active owner cannot be removed.</p>
+      <CheckField label={`I understand ${who} will lose staff access.`} checked={confirmed} required onChange={setConfirmed} />
+      {command.error && <ErrorNotice error={command.error} />}
+    </fieldset><FormFooter busy={command.isPending} label="Remove from team" /></form></Dialog>;
+}
+
 export function TeamPage() {
+  const { user } = useAuth();
   const filters = useListFilters();
   const result = useResource('team', filters.args);
   const [editor, setEditor] = useState<Staff | 'invite' | null>(null);
+  const [removing, setRemoving] = useState<Staff | null>(null);
+  const [notice, setNotice] = useState('');
   return <><PageHeading title="Team" description="Invitation-only staff access, with explicit operational roles." action={
-    <button className="admin-button admin-button-primary" onClick={() => setEditor('invite')}><IconPlus size={17} />Invite team member</button>} />
+    <button className="admin-button admin-button-primary" onClick={() => { setNotice(''); setEditor('invite'); }}><IconPlus size={17} />Invite team member</button>} />
+    {notice && <p className="admin-success" role="status">{notice}</p>}
     <section className="admin-panel"><div className="admin-toolbar"><SearchBox query={filters.query} onSearch={value => filters.setFilter('query', value)} placeholder="Search staff" />
       <label className="admin-inline-field">Staff access<select value={filters.status} onChange={event => filters.setFilter('status', event.target.value)}><option value="">All team members</option><option value="active">Active</option><option value="suspended">Suspended</option></select></label></div>
       <AsyncState pending={result.isPending} error={result.error} retry={() => { void result.refetch(); }}>
         {result.data && (result.data.rows.length ? <Table label="Team members" columns={['Team member', 'Role', 'Access', 'Access registered', 'Actions']}>
-          {result.data.rows.map(staff => <tr key={staff.id}><td><strong>{staff.name || 'Invited account'}</strong><small>{staff.email}</small></td><td><Badge value={staff.role} /></td><td><Badge value={staff.active ? 'active' : 'suspended'} /></td>
-            <td>{staff.invited_at ? dateTime(staff.invited_at) : 'Not invited through this store'}</td><td><button className="admin-button admin-button-small" onClick={() => setEditor(staff)} aria-label={`Manage ${staff.email || staff.name}`}>Manage</button></td></tr>)}
+          {result.data.rows.map(staff => <tr key={staff.id}><td><strong>{staff.name || 'Invited account'}</strong><small>{staff.email}</small></td><td><Badge value={staff.role} /></td>
+            <td><Badge value={staff.active ? 'active' : 'suspended'} />{staff.pending && <small className="admin-pending">Invitation pending</small>}</td>
+            <td>{staff.invited_at ? dateTime(staff.invited_at) : 'Not invited through this store'}</td>
+            <td><div className="admin-row-actions"><button className="admin-button admin-button-small" onClick={() => setEditor(staff)} aria-label={`Manage ${staff.email || staff.name}`}>Manage</button>
+              {staff.id !== user?.id && <button className="admin-button admin-button-small admin-button-danger" onClick={() => { setNotice(''); setRemoving(staff); }} aria-label={`Remove ${staff.email || staff.name}`}>Remove</button>}</div></td></tr>)}
         </Table> : <EmptyState title={filters.query ? 'No matching team members' : 'No team members found'}>Only invited staff accounts can access administration.</EmptyState>)}
         {result.data && <Pagination page={result.data.page} total={result.data.total} pageSize={result.data.page_size} onPage={page => filters.setFilter('page', String(page))} />}
       </AsyncState></section>
-    <p className="admin-muted">Registration timestamps record when staff access was added through this store. They do not prove email delivery or invitation acceptance. Existing accounts are not sent another email.</p>
+    <p className="admin-muted">Registration timestamps record when staff access was added through this store. “Invitation pending” means the person has not signed in yet. Existing accounts are not sent another email.</p>
     {editor === 'invite' ? <InviteDialog onClose={() => setEditor(null)} /> : editor && <StaffEditor staff={editor} onClose={() => setEditor(null)} />}
+    {removing && <RemoveStaffDialog staff={removing} onClose={() => setRemoving(null)} onRemoved={setNotice} />}
   </>;
 }
 

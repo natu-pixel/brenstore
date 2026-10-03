@@ -1,6 +1,7 @@
 export function safeReturnPath(value: string | null | undefined): string {
   if (!value || /[\\%]/.test(value) || [...value].some((character) => character.charCodeAt(0) <= 32)) return '/';
   if (value === '/' || value === '/#products' || value === '/#support' || value === '/checkout' || value === '/orders') return value;
+  if (value === '/account/telegram' || /^\/account\/telegram\/link\/[A-Za-z0-9_-]{43}$/.test(value)) return value;
   if (/^\/orders\/[0-9a-f-]{36}$/i.test(value)) return value;
   if (/^\/admin(?:\/[a-z0-9-]+)*\/?$/i.test(value)) return value;
   return '/';

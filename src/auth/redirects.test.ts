@@ -15,4 +15,14 @@ describe('local auth redirect allowlist', () => {
     expect(url.searchParams.get('returnTo')).toBe('/checkout');
     expect(signInPath('/checkout')).toBe('/auth?returnTo=%2Fcheckout');
   });
+  it('preserves only exact Telegram routes through sign-in and email callbacks', () => {
+    const target = `/account/telegram/link/${'a'.repeat(43)}`;
+    expect(safeReturnPath('/account/telegram')).toBe('/account/telegram');
+    expect(safeReturnPath(target)).toBe(target);
+    expect(new URL(authRedirect('/auth/callback', target)).searchParams.get('returnTo')).toBe(target);
+    expect(signInPath(target)).toBe(`/auth?returnTo=${encodeURIComponent(target)}`);
+    for (const path of [`${target}/extra`, `${target}?next=https://evil.test`, target.slice(0, -1), '/account/telegram//evil.test']) {
+      expect(safeReturnPath(path)).toBe('/');
+    }
+  });
 });

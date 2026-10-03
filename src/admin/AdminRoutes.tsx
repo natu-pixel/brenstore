@@ -1,7 +1,7 @@
 import { useContext, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
 import { Link, NavLink, Route, Routes, useLocation } from 'react-router-dom';
-import { IconActivity, IconArrowUpRight, IconBox, IconBuildingStore, IconChevronRight, IconLayoutDashboard, IconLogout, IconMenu2, IconPackage, IconSettings, IconShoppingBag, IconTag, IconUsers, IconUsersGroup, IconX } from '@tabler/icons-react';
+import { IconActivity, IconArrowUpRight, IconBox, IconChevronRight, IconLayoutDashboard, IconLogout, IconMenu2, IconPackage, IconSettings, IconShoppingBag, IconTag, IconUsers, IconUsersGroup, IconX } from '@tabler/icons-react';
 import { useAuth } from '../auth/AuthProvider';
 import { AccessDenied, EmptyState, ErrorNotice } from './shared';
 import { canManage, isOwner, titleCase } from './utils';
@@ -76,7 +76,7 @@ function AdminShell() {
           if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
         }
       }}>
-      <div className="admin-wordmark"><IconBuildingStore size={24} stroke={1.6} /><Link to="/admin" onClick={() => setMenu(false)}>brenstore<span>Administration</span></Link>
+      <div className="admin-wordmark"><img className="admin-wordmark-mark" src="/brand-mark.png" alt="" width={28} height={28} /><Link to="/admin" onClick={() => setMenu(false)}>brenstore<span>Administration</span></Link>
         <button type="button" className="admin-icon-button admin-mobile-only" aria-label="Close navigation" onClick={() => setMenu(false)}><IconX size={20} /></button></div>
       <span className="admin-nav-label">Workspace</span>
       <nav aria-label="Administration">{links.filter(link => link.visible).map(({ path, label, icon: Icon }) =>

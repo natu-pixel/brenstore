@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { integerInput, planForm, planInput, validSlug } from './validation';
+import { integerInput, planForm, planInput, serviceDetailsForm, serviceDetailsInput, validSlug } from './validation';
 import { message } from './utils';
 
 const draft = () => ({ ...planForm(), name: 'Test plan', slug: 'test-plan', initial: 'T' });
@@ -82,5 +82,25 @@ describe('admin plan validation', () => {
     expect(message(new Error('duplicate key value violates unique constraint "other_key"'))).toMatch(/already exists/i);
     expect(message(new Error('plain failure'))).toBe('plain failure');
     expect(message('nope')).toMatch(/went wrong/i);
+  });
+});
+
+describe('service storefront details validation', () => {
+  it('trims copy, splits one item per line and maps an empty badge to null', () => {
+    const form = { ...serviceDetailsForm(), tagline: '  Premium  ', features: 'HD\n\n  4K  \n', requirements: '', notes: ' Exact email ' };
+    expect(serviceDetailsInput(form, 'service')).toEqual({
+      id: 'service', badge: null, tagline: 'Premium', description: '', notes: 'Exact email',
+      features: ['HD', '4K'], requirements: [],
+    });
+    expect(serviceDetailsInput({ ...form, badge: 'popular' }, 'service')).toMatchObject({ badge: 'popular' });
+  });
+
+  it('round-trips saved details and enforces the database limits', () => {
+    const saved = serviceDetailsForm({ id: 's', name: 'S', slug: 's', category_id: 'c', category_name: 'C', brand_key: '', initial: 'S',
+      color_start: '#000000', color_end: '#ffffff', badge: 'premium', features: ['A', 'B'], requirements: ['C'] });
+    expect(saved).toMatchObject({ badge: 'premium', features: 'A\nB', requirements: 'C', tagline: '', notes: '' });
+    expect(() => serviceDetailsInput({ ...saved, tagline: 'x'.repeat(161) }, 's')).toThrow('tagline');
+    expect(() => serviceDetailsInput({ ...saved, features: Array.from({ length: 31 }, (_, i) => `f${i}`).join('\n') }, 's')).toThrow('30 lines');
+    expect(() => serviceDetailsInput({ ...saved, requirements: 'x'.repeat(301) }, 's')).toThrow('300 characters');
   });
 });

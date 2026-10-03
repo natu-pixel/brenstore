@@ -10,6 +10,9 @@ export default defineConfig({
     baseURL: 'http://127.0.0.1:5175',
     browserName: 'chromium',
     viewport: { width: 1440, height: 1000 },
+    // Region auto-detection reads these; pin them so the default currency is deterministic (USD).
+    timezoneId: 'America/New_York',
+    locale: 'en-US',
     actionTimeout: 15_000,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',

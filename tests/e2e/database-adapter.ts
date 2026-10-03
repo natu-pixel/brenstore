@@ -3,11 +3,12 @@ import { z } from 'zod';
 import type { Input } from '../../src/features/api';
 import type { startTestDatabase } from '../postgres/database';
 
-type TestDatabase = Pick<Awaited<ReturnType<typeof startTestDatabase>>, 'read' | 'mutate' | 'role'>;
+type TestDatabase = Pick<Awaited<ReturnType<typeof startTestDatabase>>, 'read' | 'mutate' | 'role' | 'rpc'>;
 export type BrowserAccount = { id: string; email: string; password: string; name: string };
 const credentials = z.object({ email: z.string(), password: z.string() });
 const rpcInput = z.object({
   resource: z.string().optional(), action: z.string().optional(),
+  op: z.string().optional(),
   args: z.record(z.string(), z.json()).optional(), input: z.record(z.string(), z.json()).optional(),
 });
 
@@ -86,6 +87,8 @@ export async function connectTestDatabase(
         } else if (name === 'bren_mutate' && payload.action) {
           const input: Input = payload.input ?? {};
           result = await database.mutate(payload.action, input, account?.id ?? null, role);
+        } else if (name === 'bren_telegram' && payload.op) {
+          result = await database.rpc('bren_telegram', [payload.op, payload.input ?? {}], role, account?.id ?? null);
         } else {
           throw new Error('Unexpected database contract request.');
         }

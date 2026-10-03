@@ -197,3 +197,52 @@ describe('service relationships', () => {
     expect(resourceSchemas.plans.parse(await db.read('plans', { service_id: s.id }, owner)).total).toBe(1);
   });
 });
+
+describe('service storefront details', () => {
+  const details = {
+    badge: 'recommended', tagline: '  NETFLIX PREMIUM ', description: 'Movies and series.',
+    features: [' HD streaming ', 'Any device'], requirements: ['A supported device'], notes: 'Use your exact email.',
+  };
+
+  it('saves trimmed details with an audit entry and publishes them only for services with active plans', async () => {
+    const s = await service();
+    expect(idOf(await db.mutate('save_service_details', { id: s.id, ...details }, owner))).toBe(s.id);
+    const admin = resourceSchemas.services.parse(await db.read('services', { id: s.id }, owner)).rows[0];
+    expect(admin).toMatchObject({ badge: 'recommended', tagline: 'NETFLIX PREMIUM', features: ['HD streaming', 'Any device'] });
+    const hidden = resourceSchemas.public_services.parse(await db.read('public_services', {}, null, 'anon'));
+    expect(hidden.some(row => row.id === s.id)).toBe(false);
+    const plan = idOf(await db.mutate('save_plan', planInput(s.id), owner));
+    const visible = resourceSchemas.public_services.parse(await db.read('public_services', {}, null, 'anon')).find(row => row.id === s.id);
+    expect(visible).toEqual({
+      id: s.id, name: 'Netflix', slug: s.input.slug, category_id: category, category_name: 'Streaming',
+      brand_key: 'netflix', initial: 'N', color_start: '#111111', color_end: '#222222',
+      badge: 'recommended', tagline: 'NETFLIX PREMIUM', description: 'Movies and series.',
+      features: ['HD streaming', 'Any device'], requirements: ['A supported device'], notes: 'Use your exact email.',
+    });
+    await db.mutate('save_service_details', { id: s.id, badge: null, tagline: '', description: '', features: [], requirements: [], notes: '' }, owner);
+    expect(resourceSchemas.public_services.parse(await db.read('public_services', {}, customer)).find(row => row.id === s.id))
+      .toMatchObject({ badge: null, features: [], notes: '' });
+    const audit = await db.admin.query('select count(*)::int as n from bren_private.bren_activity where entity_id = $1 and action = $2', [s.id, 'save_service_details']);
+    expect(audit.rows[0].n).toBe(2);
+    await db.mutate('delete_plan', { id: plan, name: 'Any display name', note: 'Cleanup' }, owner);
+  });
+
+  it('rejects invalid input, unknown services and non-managers', async () => {
+    const s = await service();
+    const input = { id: s.id, ...details };
+    for (const bad of [
+      { ...input, badge: 'hot' }, { ...input, tagline: 'x'.repeat(161) }, { ...input, features: 'HD' },
+      { ...input, features: [''] }, { ...input, requirements: ['x'.repeat(301)] },
+      { ...input, features: Array.from({ length: 31 }, (_, index) => `f${index}`) }, { ...input, features: [1] },
+      { ...input, unexpected: true }, { ...input, id: crypto.randomUUID() },
+    ]) await expect(db.mutate('save_service_details', bad, owner)).rejects.toThrow();
+    for (const actor of [customer, support]) await expect(db.mutate('save_service_details', input, actor)).rejects.toThrow();
+    await expect(db.mutate('save_service_details', input, null, 'anon')).rejects.toThrow();
+    await expect(db.read('public_services', { query: 'x' }, null, 'anon')).rejects.toThrow();
+    const privileges = await db.admin.query(`select
+      has_function_privilege('authenticated', 'bren_private.bren_mutate_catalog(text,jsonb)', 'execute') as mutate,
+      has_function_privilege('anon', 'bren_private.bren_read_catalog(text,jsonb)', 'execute') as read`);
+    expect(privileges.rows).toEqual([{ mutate: false, read: false }]);
+    expect(resourceSchemas.catalog.parse(await db.read('catalog', {}, null, 'anon')).length).toBeGreaterThan(0);
+  });
+});

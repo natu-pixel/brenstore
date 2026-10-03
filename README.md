@@ -12,23 +12,29 @@ On phones and tablets (up to 1020px wide), the storefront header keeps its brand
 
 The catalog relationship is **Category → Service → Plan option**. In **Admin > Services**, create a service (for example Netflix), open it, and add **1 user** or **On mail** options. Each option is an existing-style sellable plan with its own ID, prices, billing term and stock. To reuse a plan, open **Plans > Edit**, set its **Linked service**, **Purchase option**, and **Users included**. Do not recreate plans that already have orders.
 
-Grouping uses `service_id`; switching uses `option_code` (`single_user` / `on_mail`). Display names, descriptions and brand names are not relationship keys. Services own their category and card branding. Renaming a plan or service does not break the switch. A service may have multiple billing terms; only one non-archived plan per service/option/term is allowed. Standalone plans and game top-ups remain independent.
+Grouping uses `service_id`; options use `option_code` (`single_user` / `on_mail`). Display names, descriptions and brand names are not relationship keys. Services own their category and card branding. Renaming a plan or service does not break grouping. A service may have multiple billing terms; only one non-archived plan per service/option/term is allowed. Standalone plans and game top-ups remain independent.
 
 **Users included** is the number of users in one purchase, not stock or quantity. An On mail package containing five users is quantity **1** and consumes **1** inventory unit. Inventory remains independent per plan; this does not introduce shared seat/account pools. Enter actual sellable package capacity in Inventory. The single-user option requires exactly one user.
 
-The card uses one sliding on/off switch: **off/left = 1 user**, **on/right = On mail**. Clicking, Space or Enter switches the selected plan's own price, currency, billing term, availability and cart ID. The switch cannot move to an unavailable option, and its help text explains why. It respects reduced-motion preferences. Both options can be bought together as separate cart/order lines. New orders snapshot the service name, option and users included along with existing names/prices; later edits never rewrite those snapshots.
+### Service cards and service pages
 
-A shared **Subscription duration** dropdown beside **Display currency**, above search and categories, offers **Monthly (30 days)**, **Quarterly (90 days)** and **Yearly (365 days)** plus configured custom day counts. **All durations** is the default so existing offers remain discoverable. Choosing a term filters every subscription card to real matching plans; services without that term are hidden, and **Show all plans** clears all filters. Game top-ups are unaffected. Cards show their selected term beside the price, without repeating the dropdown.
+Each service (or standalone plan/top-up) has one compact card: large brand logo, optional badge (**Recommended**, **Popular** or **Premium**), name, category, tagline (falling back to the description), a green **Available** or red **Currently Unavailable** status, **From** the lowest purchasable price in the selected currency, and **View Plans** + **Order** buttons. Both buttons open the service page at `/services/<service id>` (standalone plans use `/services/plan-<plan id>`); **Order** jumps to the plan list and is disabled when nothing is purchasable. `/services` redirects to the homepage catalog.
 
-Changing duration retains the selected 1 user / On mail option when it exists for the new term; otherwise the card selects an existing matching option. Unpriced, sold-out or cart-capped plans cannot be purchased. Changing currency keeps the exact selected plan. The option switch never leaves an explicitly selected duration. Under **All durations** it prefers the same term, with visible help before switching to a different term. Cart, checkout and saved-order summaries retain the exact purchased plan and duration.
+The service page shows a hero (logo, badge, category, name, tagline, availability, description), then **Choose a Plan** listing every published option and term with its own price, comparison price, stock and **Order** button. Order adds that exact plan to the cart and opens the cart drawer. The plan with the lowest price per user per day is tagged **Best value** when it beats the others. **Features**, **Requirements** and **Important Notes** follow and are hidden when empty. Unpriced, sold-out or cart-capped plans cannot be ordered. Both options can be bought together as separate cart/order lines. New orders snapshot the service name, option and users included along with existing names/prices; later edits never rewrite those snapshots.
+
+Staff edit this copy in **Admin > Services > (service) > Storefront details**: badge, tagline (≤160 characters), description (≤4,000), features and requirements (one per line, up to 30 lines of ≤300 characters each) and important notes (≤2,000). Apply `20261003000100_bren_service_details.sql` first. It only adds columns, the `save_service_details` action (Owner/Manager, audited) and the anonymous `public_services` read, which returns display fields only for services with at least one active plan in a non-archived category.
+
+The store header has an AliExpress-style region button showing the selected country's flag and currency (for example 🇪🇹 **ETB**) between the navigation links and **Sign in**; on phones it sits in the top bar. Flags are bundled SVGs from the MIT-licensed `flag-icons` package (Windows does not render flag emoji); only the flags actually displayed are downloaded, from the store's own host. It opens a **Region & currency** panel with a **Ship to** country list (with the chosen flag) and a **Currency** choice. Choosing Ethiopia suggests ETB and any other country suggests USD; customers can override it before **Save**. On a first visit the country is guessed locally from the device time zone (`Africa/Addis_Ababa` → Ethiopia) and language region, falling back to the United States. No IP lookup or third-party service is used. The country is stored in `localStorage` (`brenstore.region.v1`) and the currency in the existing cart state. Prices are never converted; each plan's separately entered USD or ETB price is shown. The cart and checkout keep their **Order currency** selector.
+
+There is no duration filter. Each card's **From** price is the lowest purchasable price across all of the service's terms, and the service page lists every term. Search also matches service taglines and descriptions. Cart, checkout and saved-order summaries retain the exact purchased plan and duration.
+
+Customers can also change a subscription's duration in the cart. Each line's **Duration** dropdown lists the current priced durations for the same service, purchase option and users-per-purchase package, with the other terms' prices beside them. Choosing a duration replaces that line with the corresponding real plan at its current catalog price, keeping its quantity and position; it never multiplies a monthly price. If the cart already contains that duration, the lines are combined. Durations that are sold out or would exceed available seats/the nine-unit limit are disabled, and failed changes leave the cart unchanged with an explicit error. Standalone, unclassified, changed-option and top-up lines keep a fixed label. Changing the cart duration does not alter the homepage filter or reserve seats.
 
 In the plan editor, duration preset buttons fill the existing billing-day field without calculating prices or stock. When creating an option from its service page, presets also distinguish the generated quarterly/yearly slug; custom and existing slugs are preserved. Create and price each duration separately. These labels describe fixed access periods, not calendar billing or automatic renewal. No additional database migration is needed.
 
-Cards keep the default view compact: logo, service name, switch, price/billing term and purchase button. A collapsed **Details** disclosure contains the full selected plan name, description, availability and comparison price. Low-stock/out-of-stock and unavailable-option warnings remain visible. Repeated category/Featured labels, option explanations and redundant single-choice dropdowns do not occupy the main card.
-
 Apply `20261002000100_bren_services.sql` before releasing this admin UI. The additive migration preserves all plan IDs, prices, capacities, allocations and historical orders. Known streaming brands/exact service aliases are linked to service records. Only unambiguous exact names from the previous `Service - 1 user` / `Service - On mail` convention receive option codes; duplicate terms stay unclassified for staff review. Descriptions such as `on mail 5 users` are never parsed. Legacy On mail package sizes remain unknown until an administrator enters them.
 
-Unclassified linked plans remain purchasable, with a disabled switch until a classified option is selected. Missing options never create a purchase. Existing stored carts still load; a changed option/package size blocks checkout until the customer removes and re-adds that plan. Search/Featured filters match a service if any linked plan matches while retaining its other options.
+Unclassified linked plans remain purchasable from the service page under their own plan name. Missing options never create a purchase. Existing stored carts still load; a changed option/package size blocks checkout until the customer removes and re-adds that plan. Search/Featured filters match a service if any linked plan matches.
 
 Owners and Managers can **Delete** a plan from **Plans** or a service's options table after providing a reason and confirming permanent deletion. Apply `20261002000200_bren_delete_plan.sql` before using this action. Only unused plans with zero capacity and no orders, allocations, stock movements or top-up deliveries can be deleted. The service and sibling options remain; the deletion is audited. History-bearing plans must instead be archived through **Edit > Status > Archived**. The server rechecks the plan and its current name under a catalog lock; stale, unauthorized and failed deletions never appear successful. Saved carts retain deleted lines with the existing unavailable-plan warning.
 
@@ -41,7 +47,17 @@ Owners and Managers can **Delete** a plan from **Plans** or a service's options 
 - Fulfillment is a separate staff action. Releasing a seat requires a reason and confirmation that access was removed; it does not issue a refund.
 - **Game top-up plans** (currently Free Fire packages) are provider-delivered instead of seat-based. Checkout collects a numeric player ID per top-up line, and top-up and subscription plans never share one order. Confirming a verified payment queues one provider delivery per unit in the same transaction; the `bren-topup` Edge Function then places and polls the provider orders. An order fulfills automatically when every unit is delivered; failed units keep the order paid, refund their provider points to the store balance automatically, and can be retried from the order page after the cause is resolved.
 - Order snapshots remain unchanged when plans/prices change. USD and ETB reporting is separate. Provider package costs are shown to staff as reference points only; sell prices are the plan's own USD/ETB prices.
-- Telegram links carry a saved order reference. They do not implement or imply bot automation.
+- Support-contact Telegram links carry a saved order reference; they remain separate from the account-linked ordering API.
+
+### Telegram ordering integration
+
+Customers can link one Telegram identity to their website account at `/account/telegram`. Linking starts in the bot, requires signed-in website approval, and completes only after the same Telegram user explicitly confirms in the original private chat. Links expire after ten minutes; disconnect revokes future bot access without deleting orders. An editable Telegram contact username is not verified identity.
+
+The colleague's bot calls the versioned `bren-bot-api` Edge Function with a dedicated server-only integration key. It can browse the public catalog, create pending orders after review, and read only the linked customer's order summaries, including for staff-linked accounts. It cannot confirm payments, fulfill orders, read staff notes, or export profiles. Website and Telegram share the same transactional order helper and history; lists/details show the server-assigned order source. Carts remain separate. Order status is on demand; automatic Telegram notifications are not implemented.
+
+Apply `20261002000300_bren_order_channels.sql` and `20261002000400_bren_telegram.sql` before this frontend. Existing orders retain source `website`; existing snapshot, price, stock, top-up, and payment rules remain unchanged. Configure `APP_ORIGIN` and `BREN_BOT_API_KEY` for the Edge Function. The optional public `VITE_TELEGRAM_BOT_USERNAME` enables an Open Telegram bot link; it does not contain a secret. Missing bot API configuration fails explicitly and does not disable ordinary website checkout.
+
+See [BOT-INTEGRATION.md](BOT-INTEGRATION.md) for HTTP contracts, required bot-side identity verification, confirmation, retry rules, limits, and deployment acceptance. This repository does not host the colleague's bot or store its Telegram token. A no-referrer document policy prevents connection paths from being sent as navigation/resource referrers; configure hosting/access logs not to retain raw linking URLs.
 
 ### Customer order tracking
 
@@ -108,6 +124,12 @@ npx supabase db push
 
 ### Current hosted status
 
+On 2026-10-02, the Telegram backend migrations `20261002000300_bren_order_channels` and `20261002000400_bren_telegram` were applied to the linked Brenstore project, and `bren-bot-api` was deployed with a dedicated server-only integration key. All nine local/remote migration versions match. Before/after fingerprints matched for existing orders (excluding the new source field), items, plans, allocations, and payments.
+
+The deployed API is `https://gwdpxgezgztbvhiynaqp.supabase.co/functions/v1/bren-bot-api`. Live HTTP checks verified key authentication, browser-origin rejection, public catalog projection, unlinked-account denial, link start/status, and rejection of confirmation before website approval. Hosted PostgREST checks verified anonymous callers cannot invoke linking, bot operations, rate-limit operations, or order creation. New Telegram tables have RLS enabled and bot RPCs are server-role-only. Existing invitation/top-up functions still reject unauthenticated requests. The single smoke-test link request was removed; no customer accounts or orders were created.
+
+The existing `APP_ORIGIN` was preserved and verified as `https://brenstore-pxzh.vercel.app`. The updated frontend has **not** been published: Vercel deployment authentication was unavailable in this session. The existing public site still serves the older bundle, so website approval/disconnect screens must be deployed before the bot integration is released. Signed-in account linking, checkout, and the colleague's real Telegram confirmation flow remain deployment acceptance steps.
+
 On 2026-10-02, the additive `20261002000100_bren_services` migration was applied to the linked Brenstore project. At that deployment, all six migration versions matched locally and remotely. Before/after integrity fingerprints matched for the existing plan fields, order items, orders, allocations and payments. The migration linked two known services; their existing ambiguous plans remained unclassified for explicit staff review. No new sellable options, prices or stock were invented.
 
 The `20261002000200_bren_delete_plan` migration was subsequently applied on the same date, enabling the audited, history-protected deletion action. The deployed function and anonymous-access restrictions were checked; no hosted plans were deleted during implementation or validation.
@@ -167,6 +189,7 @@ The current Auth site URL and invitation `APP_ORIGIN` are `http://127.0.0.1:5173
 ```powershell
 npx supabase start --exclude realtime,storage-api,imgproxy,studio,postgres-meta,logflare,vector,supavisor
 npx supabase migration up --local
+node scripts/seed-local-demo.ts   # optional: local owner login + demo services
 npm run dev:local -- --host 127.0.0.1 --port 5173 --strictPort
 ```
 
@@ -195,15 +218,28 @@ npx supabase secrets set APP_ORIGIN=https://YOUR_STORE_HOST
 npx supabase functions deploy bren-invite
 ```
 
-For local function testing, provide `APP_ORIGIN=http://127.0.0.1:5173` in an ignored local function environment file and run:
+For local function testing, provide `APP_ORIGIN=http://127.0.0.1:5173` in the git-ignored `supabase\functions\.env.local` and run the store on port 5173 (the local Auth redirect allow-list only covers 5173):
 
 ```powershell
 npx supabase functions serve bren-invite --env-file supabase\functions\.env.local
 ```
 
+Local invitation emails are not delivered; open Mailpit at `http://127.0.0.1:15424` to read them and click **Accept invitation**. The first call after starting the function can take ~30 seconds while its dependencies download; later invitations complete in about a second. Invitation links are single-use.
+
 Set the Supabase Auth site URL and allowed callback URL(s) for the actual deployment, including callback query parameters (for example, `https://YOUR_STORE_HOST/auth/callback**`, not an unrestricted host wildcard). Local callback URLs are configured under `[auth]` in `supabase/config.toml`. Test invitation delivery, acceptance, recovery and expired links with the project's real email provider before launch.
 
 An invitation to an existing account grants staff access to that account instead of creating a duplicate Auth identity. If email delivery succeeds but role registration fails, the function reports that partial failure explicitly; correct the permission issue and retry for the same email.
+
+**Removing team members (Owner only).** In **Admin > Team**, rows show **Invitation pending** until the person signs in for the first time. **Remove** (not shown on your own row) asks for confirmation and is recorded in the Activity log. Apply `20261003000200_bren_remove_staff.sql` first.
+- *Pending invitation:* staff access is removed and the unused Auth account is deleted, so the email link stops working ("Link unavailable") and the same email can be invited again with a fresh email. If that account already has store history (for example an order), it is kept and only staff access is removed.
+- *Accepted member:* administration access is removed immediately; their sign-in, orders and history remain as an ordinary customer account. To pause access instead, use **Manage** and clear **Staff access is active**.
+- Owners cannot remove themselves, so at least one active Owner always remains. A stale team list (email changed since loading) is rejected; reload and retry.
+
+**Invitation email not received?** Check the message the invite dialog showed:
+- *"The server could not be reached from …"*: invite from the live address configured as `APP_ORIGIN` (currently `https://brenstore-pxzh.vercel.app`), not from `127.0.0.1`.
+- *"Supabase could not send the invitation…"*: the project is using Supabase's built-in email, which only delivers to members of the Supabase organization's team and only a few emails per hour. Configure custom SMTP under **Authentication → Emails → SMTP Settings** (for example Resend, Brevo, Postmark or Google Workspace), then invite again.
+- *"Invitation sent."*: check spam/quarantine; company mail filters often hold mail from new senders. Custom SMTP with your own domain improves delivery.
+- *"Access granted to the existing account."*: no email is sent by design; that person signs in with their existing password.
 
 ## Game top-up function
 
@@ -332,7 +368,9 @@ The former 3D model is no longer loaded or displayed. Its retained files under `
 
 ## Deployment
 
-`npm run build` outputs the static app to `dist`. Configure the host to serve `index.html` for application paths such as `/admin/orders/...`, `/auth/callback`, `/checkout` and `/orders/...`; asset requests must still return the real asset or a 404. Set the public Supabase build variables, apply reviewed database migrations, deploy the invitation function, and verify Auth redirect URLs.
+`npm run build` outputs the static app to `dist`. Configure the host to serve `index.html` for application paths such as `/services/...`, `/admin/orders/...`, `/auth/callback`, `/checkout` and `/orders/...`; asset requests must still return the real asset or a 404. Set the public Supabase build variables, apply reviewed database migrations, deploy the invitation function, and verify Auth redirect URLs.
+
+Brand assets live in `public/`: `logo.jpg` is the source artwork; `favicon.ico`, `favicon-32.png`, `apple-touch-icon.png`, `icon-192.png`/`icon-512.png` (referenced by `site.webmanifest`) and `brand-mark.png` (store header and admin sidebar) are the trimmed bag "B" mark; `logo-wordmark.png` and `og-image.png` (social preview) use the full wordmark. Regenerate them from the source if the logo changes.
 
 Before calling a deployment complete, verify persisted catalog edits, signed-in order creation, direct API role isolation, payment confirmation, concurrent last-seat requests, invitation/recovery delivery, and desktop/mobile behavior against that exact environment.
 

@@ -2,13 +2,15 @@ import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useCommand, useResource } from '../features/api';
-import type { OptionCode, Plan, Service } from '../features/api';
+import type { OptionCode, Plan, Service, ServiceBadge } from '../features/api';
 import { SERVICES, servicesForCategory } from '../data/logos';
 import { optionLabels, optionSummary } from '../data/plan-options';
+import { badgeLabels } from '../data/service-view';
 import { formatMoney } from '../lib/money';
 import { DeletePlanDialog, PlanEditor } from './CatalogPages';
 import { useCategories, useListFilters } from './hooks';
-import { validSlug } from './validation';
+import { serviceDetailsForm, serviceDetailsInput, validSlug } from './validation';
+import type { ServiceDetailsForm } from './validation';
 import { AsyncState, Badge, Dialog, EmptyState, ErrorNotice, Field, FormFooter, PageHeading, Pagination, SearchBox, Table } from './shared';
 
 function ServiceEditor({ service, onClose }: { service?: Service; onClose: () => void }) {
@@ -85,6 +87,62 @@ export function ServicesPage() {
     </section>{creating && <ServiceEditor onClose={() => setCreating(false)} />}</>;
 }
 
+function ServiceDetailsEditor({ service, onClose }: { service: Service; onClose: () => void }) {
+  const [initial] = useState(() => serviceDetailsForm(service));
+  const [form, setForm] = useState(initial);
+  const [error, setError] = useState<unknown>(null);
+  const command = useCommand();
+  const update = <K extends keyof ServiceDetailsForm>(key: K, value: ServiceDetailsForm[K]) => setForm(previous => ({ ...previous, [key]: value }));
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (command.isPending) return;
+    setError(null);
+    try {
+      await command.mutateAsync({ action: 'save_service_details', input: serviceDetailsInput(form, service.id) });
+      onClose();
+    } catch (cause) { setError(cause); }
+  }
+  return <Dialog title={`Storefront details for ${service.name}`} onClose={onClose} wide
+    dirty={JSON.stringify(form) !== JSON.stringify(initial)} busy={command.isPending}>
+    <form onSubmit={submit}><fieldset disabled={command.isPending} className="admin-dialog-body">
+      <Field label="Badge"><select value={form.badge} onChange={event => update('badge', event.target.value as ServiceBadge | '')}>
+        <option value="">No badge</option>
+        {(Object.keys(badgeLabels) as ServiceBadge[]).map(badge => <option key={badge} value={badge}>{badgeLabels[badge]}</option>)}
+      </select></Field>
+      <Field label="Tagline" hint="Short line shown on the card, e.g. NETFLIX PREMIUM.">
+        <input maxLength={160} value={form.tagline} onChange={event => update('tagline', event.target.value)} /></Field>
+      <Field label="Description"><textarea rows={4} maxLength={4000} value={form.description} onChange={event => update('description', event.target.value)} /></Field>
+      <Field label="Features" hint="One per line, up to 30."><textarea rows={5} value={form.features} onChange={event => update('features', event.target.value)} /></Field>
+      <Field label="Requirements" hint="One per line, up to 30."><textarea rows={5} value={form.requirements} onChange={event => update('requirements', event.target.value)} /></Field>
+      <Field label="Important notes"><textarea rows={3} maxLength={2000} value={form.notes} onChange={event => update('notes', event.target.value)} /></Field>
+      {Boolean(error) && <ErrorNotice error={error} />}
+    </fieldset><FormFooter busy={command.isPending} label="Save storefront details" /></form>
+  </Dialog>;
+}
+
+function StorefrontDetailsPanel({ service, onEdit }: { service: Service; onEdit: () => void }) {
+  const features = service.features ?? [];
+  const requirements = service.requirements ?? [];
+  return <section className="admin-panel" aria-labelledby="storefront-details-title">
+    <div className="admin-toolbar">
+      <h2 id="storefront-details-title">Storefront details</h2>
+      <button className="admin-button admin-button-primary" onClick={onEdit}>Edit storefront details</button>
+      <a className="admin-button" href={`/services/${service.id}`} target="_blank" rel="noreferrer">View on store</a>
+    </div>
+    <div className="admin-storefront-details">
+      <dl className="admin-description-list">
+        <dt>Badge</dt><dd>{service.badge ? badgeLabels[service.badge] : 'None'}</dd>
+        <dt>Tagline</dt><dd>{service.tagline || 'Not set'}</dd>
+        <dt>Description</dt><dd>{service.description || 'Not set'}</dd>
+        <dt>Features</dt><dd>{features.length ? `${features.length} listed` : 'None'}</dd>
+        <dt>Requirements</dt><dd>{requirements.length ? `${requirements.length} listed` : 'None'}</dd>
+        <dt>Important notes</dt><dd>{service.notes || 'None'}</dd>
+      </dl>
+      <p className="admin-muted">The service page appears in the store once at least one of its plans is active.</p>
+    </div>
+  </section>;
+}
+
 export function ServiceDetailPage() {
   const { id } = useParams();
   const [page, setPage] = useState(1);
@@ -92,6 +150,7 @@ export function ServiceDetailPage() {
   const plans = useResource('plans', { service_id: id, page }, Boolean(id));
   const service = result.data?.rows[0];
   const [editingService, setEditingService] = useState(false);
+  const [editingDetails, setEditingDetails] = useState(false);
   const [editor, setEditor] = useState<Plan | OptionCode | null>(null);
   const [deleting, setDeleting] = useState<Plan | null>(null);
   return <><Link to="/admin/services">Back to services</Link>
@@ -124,7 +183,9 @@ export function ServiceDetailPage() {
             {plans.data && <Pagination page={plans.data.page} pageSize={plans.data.page_size} total={plans.data.total} onPage={setPage} />}
           </AsyncState>
         </section>
+        <StorefrontDetailsPanel service={service} onEdit={() => setEditingDetails(true)} />
         {editingService && <ServiceEditor service={service} onClose={() => setEditingService(false)} />}
+        {editingDetails && <ServiceDetailsEditor service={service} onClose={() => setEditingDetails(false)} />}
         {editor && <PlanEditor plan={typeof editor === 'string' ? undefined : editor}
           service={service} option={typeof editor === 'string' ? editor : undefined} onClose={() => setEditor(null)} />}
         {deleting && <DeletePlanDialog plan={deleting} onClose={() => setDeleting(null)} />}

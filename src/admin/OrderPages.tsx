@@ -12,10 +12,10 @@ import { useListFilters } from './hooks';
 import { canManage, dateTime, shortId, titleCase } from './utils';
 
 export function OrderTable({ orders }: { orders: Order[] }) {
-  return <Table label="Orders" columns={['Order', 'Customer', 'Date', 'Total', 'Payment', 'Order status']}>
+  return <Table label="Orders" columns={['Order', 'Customer', 'Date', 'Total', 'Payment', 'Order status', 'Source']}>
     {orders.map(order => <tr key={order.id}><td><Link to={`/admin/orders/${order.id}`} className="admin-strong-link">{order.reference}</Link></td>
       <td>{order.customer_name}</td><td>{dateTime(order.created_at)}</td><td className="admin-numeric">{formatMoney(order.total_minor, order.currency)}</td>
-      <td><Badge value={order.payment_status} /></td><td><Badge value={order.status} /></td></tr>)}
+      <td><Badge value={order.payment_status} /></td><td><Badge value={order.status} /></td><td>{order.source === 'telegram' ? 'Telegram' : 'Website'}</td></tr>)}
   </Table>;
 }
 
@@ -144,7 +144,7 @@ export function OrderDetailPage() {
   const detail = result.data;
   const isTopup = Boolean(detail?.items.some((item) => item.player_id));
   return <><Link to="/admin/orders" className="admin-back-link">← All orders</Link>
-    <PageHeading title={detail?.order.reference ?? 'Order details'} description={detail ? `Placed ${dateTime(detail.order.created_at)}` : 'Payment and fulfillment are separate steps.'} />
+    <PageHeading title={detail?.order.reference ?? 'Order details'} description={detail ? `Placed ${dateTime(detail.order.created_at)} via ${detail.order.source === 'telegram' ? 'Telegram' : 'website'}` : 'Payment and fulfillment are separate steps.'} />
     <AsyncState pending={result.isPending} error={result.error} retry={() => { void result.refetch(); }}>
       {detail && <>
         <div className="admin-detail-status"><div><Badge value={detail.order.status} /><Badge value={detail.order.payment_status} /></div>

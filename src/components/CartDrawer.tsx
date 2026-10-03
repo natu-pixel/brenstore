@@ -1,14 +1,14 @@
 import { useEffect, useRef } from 'react';
 import { IconChevronRight, IconMinus, IconPlus, IconShoppingCart, IconTrash, IconX } from '@tabler/icons-react';
 import BrandLogo from './BrandLogo';
-import { useCart } from '../cart';
+import { durationSeatsNeeded, MAX_QUANTITY, useCart } from '../cart';
 import { formatMoney } from '../lib/money';
-import { billingLabel, planPrice } from '../data/products';
+import { billingLabel, billingTerms, planPrice } from '../data/products';
 import { optionChanged, optionSummary } from '../data/plan-options';
 import type { Currency } from '../features/api';
 
 export default function CartDrawer({ open, onClose, onCheckout }: { open: boolean; onClose: () => void; onCheckout: () => void }) {
-  const { lines, count, subtotalMinor, currency, setCurrency, setQty, acceptPrice, remove, clear } = useCart();
+  const { lines, count, subtotalMinor, currency, setCurrency, setQty, acceptPrice, changeDuration, remove, clear } = useCart();
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const element = dialog.current;
@@ -42,7 +42,20 @@ export default function CartDrawer({ open, onClose, onCheckout }: { open: boolea
                 <div className="drawer-item-info">
                   <strong>{plan.name}</strong><span>{plan.description}</span>
                   {plan.option_code && <span>{optionSummary(plan)}</span>}
-                  {plan.kind !== 'topup' && <span>{billingLabel(plan.billing_days)}</span>}
+                  {plan.kind !== 'topup' && (line.durations.length > 1
+                    ? <label className="cart-duration">Duration
+                      <select value={plan.id} aria-label={`${plan.name} duration`} onChange={(event) => changeDuration(plan.id, event.target.value)}>
+                        {line.durations.map((option) => {
+                          const cap = Math.min(MAX_QUANTITY, option.available ?? 0);
+                          const blocked = option.id !== plan.id && durationSeatsNeeded({ items: lines }, plan.id, option) > cap;
+                          const price = planPrice(option, currency);
+                          return <option key={option.id} value={option.id} disabled={blocked}>
+                            {billingTerms.find((term) => term.days === option.billing_days)?.label ?? billingLabel(option.billing_days)}{price !== null && option.id !== plan.id ? ` · ${formatMoney(price, currency)}` : ''}{blocked ? (cap <= 0 ? ' · sold out' : ` · only ${cap} left`) : ''}
+                          </option>;
+                        })}
+                      </select>
+                    </label>
+                    : <span>{billingLabel(plan.billing_days)}</span>)}
                   <div className="qty-stepper">
                     <button onClick={() => setQty(plan.id, qty - 1)} aria-label={`Decrease ${plan.name} quantity`}><IconMinus size={14} /></button>
                     <b>{qty}</b>

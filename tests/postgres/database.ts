@@ -45,6 +45,7 @@ export async function startTestDatabase(options: { beforeMigration?: (name: stri
         raw_user_meta_data jsonb not null default '{}'::jsonb,
         email_confirmed_at timestamptz,
         invited_at timestamptz,
+        last_sign_in_at timestamptz,
         created_at timestamptz not null default now(),
         updated_at timestamptz not null default now()
       );
@@ -71,6 +72,7 @@ export async function startTestDatabase(options: { beforeMigration?: (name: stri
   }
 
   type CallableFunction = 'bren_read' | 'bren_mutate' | 'bren_my_role' | 'bren_register_staff'
+    | 'bren_telegram' | 'bren_bot' | 'bren_bot_allow'
     | 'bren_topup_pending' | 'bren_topup_started' | 'bren_topup_finished';
 
   async function call(

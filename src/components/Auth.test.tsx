@@ -88,6 +88,17 @@ describe('real account flows without demo authentication', () => {
     expect(callback.searchParams.get('type')).toBe('recovery');
     expect(callback.searchParams.get('returnTo')).toBe('/checkout');
   });
+  it('preserves a Telegram connection through the signup confirmation email', async () => {
+    const returnTo = `/account/telegram/link/${'a'.repeat(43)}`;
+    methods.signUp.mockResolvedValue({ data: { session: null }, error: null });
+    setup(`/auth?returnTo=${encodeURIComponent(returnTo)}`);
+    fireEvent.click(screen.getByRole('button', { name: 'Sign Up' }));
+    enter('Full name', 'Customer'); enter('Email', 'customer@example.test');
+    enter(/^Password/, 'secure-test-password'); enter('Confirm password', 'secure-test-password'); submit();
+    await screen.findByText(/Check your email for the confirmation link/);
+    const callback = new URL(methods.signUp.mock.calls[0][0].options.emailRedirectTo);
+    expect(callback.searchParams.get('returnTo')).toBe(returnTo);
+  });
   it('does not let an expired recovery link update a password without a session', () => {
     setup('/auth/update-password');
     expect(screen.getByText(/This link has expired or was already used/)).toBeInTheDocument();

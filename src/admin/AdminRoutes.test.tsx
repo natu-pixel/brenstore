@@ -33,6 +33,7 @@ vi.mock('../features/api', async importOriginal => ({
 }));
 
 const order: Order = {
+  source: 'website',
   id: 'order-1', reference: 'BREN-TEST', customer_id: 'customer-1', customer_name: 'Test customer',
   phone: '+100000000', telegram: '@test', currency: 'USD', total_minor: 12345,
   status: 'pending', payment_status: 'pending', created_at: '2026-01-01T10:00:00Z', updated_at: '2026-01-01T10:00:00Z',

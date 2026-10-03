@@ -50,6 +50,7 @@
 .admin-root .admin-icon-button:hover { background: #f1f3f6; color: #344054; }
 .admin-root .admin-sidebar { width: 230px; flex: 0 0 230px; position: sticky; top: 0; height: 100dvh; padding: 27px 16px 18px; display: flex; flex-direction: column; border-right: 1px solid var(--admin-line); background: #fff; z-index: 30; }
 .admin-root .admin-wordmark { display: flex; align-items: center; gap: 10px; padding: 0 12px 28px; color: #1e51c9; }
+.admin-root .admin-wordmark-mark { width: 28px; height: 28px; object-fit: contain; flex-shrink: 0; }
 .admin-root .admin-wordmark a { color: #172b51; font-weight: 700; font-size: 21px; letter-spacing: -.65px; line-height: 1.1; text-decoration: none; }
 .admin-root .admin-wordmark span { display: block; font-size: 10px; font-weight: 400; color: #7b8495; letter-spacing: 1px; margin-top: 7px; text-transform: uppercase; }
 .admin-root .admin-nav-label { display: block; color: #8a94a4; font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; padding: 0 13px; margin: 7px 0 10px; }
@@ -125,6 +126,7 @@
 .admin-root .admin-muted { color: var(--admin-muted); font-size: 12px; }
 .admin-root p.admin-muted { margin-top: 12px; }
 .admin-root .admin-success { color: #27714c; font-size: 13px; margin-top: 12px; }
+.admin-root .admin-pending { display: block; margin-top: 4px; color: #b54708; font-size: 11px; font-weight: 600; }
 .admin-root .admin-callout { background: #f3f7ff; border: 1px solid #e0e8fa; color: #536888; padding: 14px 16px; font-size: 12px; border-radius: 6px; margin-bottom: 20px; }
 .admin-root .admin-callout p { margin-top: 7px; }
 .admin-root .admin-stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; margin-bottom: 22px; }
@@ -178,6 +180,9 @@
 .admin-root .admin-description-list dd { margin: 0 0 18px; color: #4c5b72; overflow-wrap: anywhere; }
 .admin-root .admin-description-list dd:last-child { margin-bottom: 0; }
 .admin-root .admin-description-list + a { font-size: 11px; }
+.admin-root .admin-storefront-details { padding: 16px 20px; }
+.admin-root .admin-storefront-details dd { white-space: pre-line; }
+.admin-root .admin-toolbar h2 { margin: 0 auto 0 0; font-size: 15px; }
 .admin-root .admin-code { font-family: ui-monospace, monospace; font-size: 10px; }
 .admin-root .admin-fit-height { height: fit-content; }
 .admin-root .admin-aside-note { padding: 3px 7px; line-height: 1.7; }

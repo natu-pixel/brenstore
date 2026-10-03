@@ -15,9 +15,18 @@ export const planKindSchema = z.enum(['seat', 'topup']);
 export type PlanKind = z.infer<typeof planKindSchema>;
 export const optionCodeSchema = z.enum(['single_user', 'on_mail']);
 export type OptionCode = z.infer<typeof optionCodeSchema>;
+export const serviceBadgeSchema = z.enum(['recommended', 'popular', 'premium']);
+export type ServiceBadge = z.infer<typeof serviceBadgeSchema>;
+const serviceDetails = {
+  badge: serviceBadgeSchema.nullable().optional(),
+  tagline: z.string().optional(), description: z.string().optional(),
+  features: z.array(z.string()).optional(), requirements: z.array(z.string()).optional(),
+  notes: z.string().optional(),
+};
 export const serviceSchema = z.object({
   id: z.string(), name: z.string(), slug: z.string(), category_id: z.string(), category_name: z.string(),
   brand_key: z.string(), initial: z.string(), color_start: z.string(), color_end: z.string(),
+  ...serviceDetails,
 });
 export type Service = z.infer<typeof serviceSchema>;
 const optionSnapshot = {
@@ -49,7 +58,22 @@ export const orderSchema = z.object({
   phone: z.string(), telegram: z.string(), currency: currencySchema, total_minor: money,
   status: z.enum(['pending', 'paid', 'fulfilled', 'cancelled']),
   payment_status: z.enum(['pending', 'confirmed']), created_at: z.string(), updated_at: z.string(),
+  source: z.enum(['website', 'telegram']),
 });
+const telegramStatusSchema = z.object({
+  linked: z.boolean(),
+  connection: z.object({ name: z.string(), username: z.string(), linked_at: z.string() }).nullable(),
+});
+const telegramRequestSchema = z.object({
+  state: z.enum(['pending', 'approved', 'connected', 'rejected', 'superseded', 'revoked', 'expired']),
+  name: z.string(), username: z.string(), expires_at: z.string(),
+});
+export const telegramSchemas = {
+  status: telegramStatusSchema, unlink: telegramStatusSchema,
+  preview: telegramRequestSchema, approve: telegramRequestSchema, reject: telegramRequestSchema,
+};
+export type TelegramOperation = keyof typeof telegramSchemas;
+export type TelegramResult = { [O in TelegramOperation]: z.infer<(typeof telegramSchemas)[O]> };
 const eventSchema = z.object({
   id: z.string(), actor_id: z.string().nullable(), action: z.string(), note: z.string(), created_at: z.string(),
 });
@@ -100,6 +124,8 @@ export const movementSchema = z.object({
 export const staffSchema = z.object({
   id: z.string(), name: z.string(), email: z.string(), role: roleSchema,
   active: z.boolean(), invited_at: z.string().nullable(),
+  // True until the person signs in for the first time (invitation not yet accepted).
+  pending: z.boolean().optional(),
 });
 export const settingsSchema = z.object({
   store_name: z.string(), telegram_url: z.string(), manual_payment_instructions: z.string(),
@@ -114,6 +140,7 @@ const paginated = <T extends z.ZodType>(row: T) => z.object({
 export const resourceSchemas = {
   catalog: z.array(planSchema),
   public_categories: z.array(categorySchema),
+  public_services: z.array(serviceSchema),
   categories: paginated(categorySchema),
   plans: paginated(planSchema),
   services: paginated(serviceSchema),
@@ -147,9 +174,9 @@ export type Customer = z.infer<typeof customerSchema>;
 export type OrderDetail = z.infer<typeof orderDetailSchema>;
 export type Input = { [key: string]: Json | undefined };
 export type Action =
-  | 'save_category' | 'save_service' | 'save_plan' | 'delete_plan' | 'adjust_capacity' | 'release_allocation'
+  | 'save_category' | 'save_service' | 'save_service_details' | 'save_plan' | 'delete_plan' | 'adjust_capacity' | 'release_allocation'
   | 'create_order' | 'confirm_payment' | 'fulfill_order' | 'cancel_order'
-  | 'add_order_note' | 'add_customer_note' | 'save_profile' | 'update_staff' | 'save_settings';
+  | 'add_order_note' | 'add_customer_note' | 'save_profile' | 'update_staff' | 'remove_staff' | 'save_settings';
 
 export class DatabaseError extends Error {
   readonly code: string;

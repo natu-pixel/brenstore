@@ -20,6 +20,9 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      bren_telegram: { Args: { op: string; input?: Json }; Returns: Json }
+      bren_bot: { Args: { op: string; telegram_user_id: string; input?: Json }; Returns: Json }
+      bren_bot_allow: { Args: { telegram_user_id: string; link_start: boolean }; Returns: number }
       bren_mutate: { Args: { action: string; input?: Json }; Returns: Json }
       bren_my_role: { Args: never; Returns: string }
       bren_read: { Args: { args?: Json; resource: string }; Returns: Json }
