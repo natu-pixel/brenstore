@@ -182,7 +182,7 @@ Some service names have no logo in the installed library (for example Disney+ an
 
 PUBG Mobile UC uses the bundled PUBG brand mark; Free Fire Diamonds uses an explicitly labeled FF initial fallback. Free Fire Diamonds plans can additionally be created as **Game top-up** products wired to the provider integration below; the remaining gaming entries stay name shortcuts only and do not imply UC/subscription delivery.
 
-The current Auth site URL and invitation `APP_ORIGIN` are `http://127.0.0.1:5173`. Only the loopback Auth callback patterns for `127.0.0.1:5173` and `localhost:5173` were added; hosted email confirmation remains enabled. A public frontend/domain has not been deployed. Update these settings for the actual host before launch. Do not push the complete local development configuration to the hosted project.
+Set the Auth site URL, allowed callback URLs and invitation `APP_ORIGIN` to the deployed HTTPS domain before launch. Keep local development settings out of the hosted project.
 
 ## Local development without changing hosted credentials
 
@@ -190,10 +190,10 @@ The current Auth site URL and invitation `APP_ORIGIN` are `http://127.0.0.1:5173
 npx supabase start --exclude realtime,storage-api,imgproxy,studio,postgres-meta,logflare,vector,supavisor
 npx supabase migration up --local
 node scripts/seed-local-demo.ts   # optional: local owner login + demo services
-npm run dev:local -- --host 127.0.0.1 --port 5173 --strictPort
+npm run dev:local
 ```
 
-`dev:local` reads the local CLI configuration, refuses non-loopback endpoints, checks the database, and passes only the local public connection values to Vite. It does not replace `.env.local` or print keys. The local database persists until explicitly removed. Local email confirmation is disabled in the development config; configure and test production email delivery/confirmation separately.
+`dev:local` reads the local CLI configuration, checks the database, and passes only its public connection values to Vite. It does not replace `.env.local` or print keys. The local database persists until explicitly removed. Local email confirmation is disabled in the development config; configure and test production email delivery/confirmation separately.
 
 For the hosted configuration in `.env.local`, use `npm run dev`.
 
@@ -218,15 +218,15 @@ npx supabase secrets set APP_ORIGIN=https://YOUR_STORE_HOST
 npx supabase functions deploy bren-invite
 ```
 
-For local function testing, provide `APP_ORIGIN=http://127.0.0.1:5173` in the git-ignored `supabase\functions\.env.local` and run the store on port 5173 (the local Auth redirect allow-list only covers 5173):
+For local function testing, set `APP_ORIGIN` in the git-ignored `supabase\functions\.env.local` to the origin used by your local app, then run:
 
 ```powershell
 npx supabase functions serve bren-invite --env-file supabase\functions\.env.local
 ```
 
-Local invitation emails are not delivered; open Mailpit at `http://127.0.0.1:15424` to read them and click **Accept invitation**. The first call after starting the function can take ~30 seconds while its dependencies download; later invitations complete in about a second. Invitation links are single-use.
+Local invitation emails are captured by the local Supabase mail service. Open its dashboard to read them and click **Accept invitation**. The first call after starting the function can take ~30 seconds while its dependencies download; later invitations complete in about a second. Invitation links are single-use.
 
-Set the Supabase Auth site URL and allowed callback URL(s) for the actual deployment, including callback query parameters (for example, `https://YOUR_STORE_HOST/auth/callback**`, not an unrestricted host wildcard). Local callback URLs are configured under `[auth]` in `supabase/config.toml`. Test invitation delivery, acceptance, recovery and expired links with the project's real email provider before launch.
+Set the Supabase Auth site URL and allowed callback URL(s) for the actual deployment, including callback query parameters (for example, `https://YOUR_STORE_HOST/auth/callback**`, not an unrestricted host wildcard). Test invitation delivery, acceptance, recovery and expired links with the project's real email provider before launch.
 
 An invitation to an existing account grants staff access to that account instead of creating a duplicate Auth identity. If email delivery succeeds but role registration fails, the function reports that partial failure explicitly; correct the permission issue and retry for the same email.
 
@@ -236,7 +236,7 @@ An invitation to an existing account grants staff access to that account instead
 - Owners cannot remove themselves, so at least one active Owner always remains. A stale team list (email changed since loading) is rejected; reload and retry.
 
 **Invitation email not received?** Check the message the invite dialog showed:
-- *"The server could not be reached from …"*: invite from the live address configured as `APP_ORIGIN` (currently `https://brenstore-pxzh.vercel.app`), not from `127.0.0.1`.
+- *"The server could not be reached from …"*: open the deployed app at the address configured as `APP_ORIGIN` and try again.
 - *"Supabase could not send the invitation…"*: the project is using Supabase's built-in email, which only delivers to members of the Supabase organization's team and only a few emails per hour. Configure custom SMTP under **Authentication → Emails → SMTP Settings** (for example Resend, Brevo, Postmark or Google Workspace), then invite again.
 - *"Invitation sent."*: check spam/quarantine; company mail filters often hold mail from new senders. Custom SMTP with your own domain improves delivery.
 - *"Access granted to the existing account."*: no email is sent by design; that person signs in with their existing password.
