@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { IconSearch, IconShoppingCart, IconSparkles, IconX } from '@tabler/icons-react';
-import { Flame, LayoutGrid } from 'lucide-react';
+import { Flame, Headphones, LayoutGrid, Lock, ShieldCheck, Zap } from 'lucide-react';
 import ServiceCard from './ServiceCard';
 import { categoryIcon } from '../data/category-icons';
 import { groupPlans, optionSummary } from '../data/plan-options';
@@ -56,6 +56,36 @@ export default function Products({ page = false }: { page?: boolean }) {
             {shown.map(group => <ServiceCard group={group} service={group.serviceId ? serviceById.get(group.serviceId) : undefined} key={group.id} />)}
           </div>
           {!shown.length && <div className="no-results"><IconSearch size={40} /><p>No plans match your filters.</p><button className="btn" onClick={() => { setQuery(''); setActive('all'); }}>Show all plans</button></div>}
+          <div className="store-trust-bar" aria-label="Store guarantees">
+            <div className="store-trust-item">
+              <span className="store-trust-icon"><ShieldCheck size={22} /></span>
+              <div className="store-trust-content">
+                <strong>Trusted Seller</strong>
+                <span>1000+ happy customers</span>
+              </div>
+            </div>
+            <div className="store-trust-item">
+              <span className="store-trust-icon"><Headphones size={22} /></span>
+              <div className="store-trust-content">
+                <strong>24/7 Support</strong>
+                <span>We're here to help</span>
+              </div>
+            </div>
+            <div className="store-trust-item">
+              <span className="store-trust-icon"><Zap size={22} /></span>
+              <div className="store-trust-content">
+                <strong>Instant Activation</strong>
+                <span>Get started fast</span>
+              </div>
+            </div>
+            <div className="store-trust-item">
+              <span className="store-trust-icon"><Lock size={22} /></span>
+              <div className="store-trust-content">
+                <strong>Secure Payments</strong>
+                <span>Your data is safe</span>
+              </div>
+            </div>
+          </div>
         </>}
       </div>
     </section>

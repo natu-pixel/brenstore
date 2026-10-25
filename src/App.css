@@ -1,4 +1,4 @@
-/* ============ layout ============ */
+﻿/* ============ layout ============ */
 .page {
   min-height: 100vh;
   background: var(--bg);
@@ -1948,5 +1948,410 @@ dialog.cart-drawer::backdrop { background: rgb(15 23 42 / 40%); }
   .side-divider {
     width: 60px;
     height: 1px;
+  }
+}
+
+/* ==========================================================================
+   Elevated Card & 3D Hero Styles (Matching Mobile Mockup)
+   ========================================================================== */
+
+/* 3D Hero Stage */
+.hero-3d-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.hero-3d-halo {
+  position: absolute;
+  width: 380px;
+  height: 380px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.35) 0%, rgba(30, 58, 138, 0.15) 50%, transparent 75%);
+  filter: blur(40px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hero-3d-image {
+  position: relative;
+  z-index: 1;
+  display: block;
+  max-width: 100%;
+  max-height: 580px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 25px 40px rgba(0, 0, 0, 0.45));
+  border-radius: 24px;
+}
+
+/* Elevated Attractive Service Card */
+.attractive-card {
+  position: relative;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  box-shadow: 0 4px 18px -2px rgba(15, 23, 42, 0.06);
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.22s;
+}
+
+.attractive-card:hover {
+  transform: translateY(-6px);
+  border-color: #93c5fd;
+  box-shadow: 0 20px 35px -5px rgba(37, 99, 235, 0.12), 0 10px 15px -5px rgba(15, 23, 42, 0.04);
+}
+
+/* Top Banner */
+.attractive-card .service-card-media {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 14px 16px;
+  min-height: 140px;
+  border-top-left-radius: 19px;
+  border-top-right-radius: 19px;
+  overflow: hidden;
+}
+
+.card-top-badges {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  position: relative;
+  z-index: 2;
+}
+
+.seller-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(22, 101, 52, 0.85);
+  backdrop-filter: blur(8px);
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.card-banner-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 10px 0;
+  position: relative;
+  z-index: 2;
+}
+
+.card-banner-center .brand-tile {
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  border: 2px solid rgba(255, 255, 255, 0.15);
+}
+
+/* Card Body */
+.attractive-card .service-card-body {
+  padding: 18px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Header Row */
+.card-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.card-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.card-header-brand .brand-tile {
+  border-radius: 14px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+}
+
+.card-header-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.card-header-titles .service-card-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.verified-check-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: #2563eb;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.card-rating-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+  font-size: 0.76rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.card-rating-chip .rating-star {
+  color: #15803d;
+}
+
+.card-rating-chip .rating-count {
+  color: #4b5563;
+  font-weight: 500;
+}
+
+.card-meta-pills {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.card-duration-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+  color: #1d4ed8;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+/* 4 Feature Highlights Grid */
+.card-features-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin: 2px 0 4px;
+}
+
+.feature-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 9px;
+  background: #f8fafc;
+  border: 1px solid #f1f5f9;
+  border-radius: 8px;
+  font-size: 0.74rem;
+  color: #334155;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.feature-icon {
+  display: flex;
+  align-items: center;
+  color: #2563eb;
+  flex-shrink: 0;
+}
+
+/* Pricing and Trust Row */
+.card-pricing-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 6px;
+  margin-top: auto;
+}
+
+.price-top-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.availability-dot-live {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+}
+
+.price-number-line {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.price-number-line strong {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.billing-unit {
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.card-trust-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+  flex-shrink: 0;
+}
+
+.trust-shield-icon {
+  color: #2563eb;
+  flex-shrink: 0;
+}
+
+.trust-pill-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.trust-pill-text strong {
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.trust-pill-text small {
+  font-size: 0.65rem;
+  color: #475569;
+}
+
+/* Order Button */
+.attractive-card .service-button-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 18px;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+  transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+}
+
+.attractive-card .service-button-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
+}
+
+.attractive-card .service-button-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Store Trust Highlights Bar (below products) */
+.store-trust-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin: 36px 0 16px;
+  padding: 20px 24px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+}
+
+.store-trust-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.store-trust-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: #eff6ff;
+  color: #2563eb;
+  flex-shrink: 0;
+}
+
+.store-trust-content {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.store-trust-content strong {
+  font-size: 0.88rem;
+  color: #0f172a;
+}
+
+.store-trust-content span {
+  font-size: 0.74rem;
+  color: #64748b;
+}
+
+@media (max-width: 900px) {
+  .store-trust-bar {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    padding: 16px;
+  }
+}
+
+@media (max-width: 540px) {
+  .card-features-grid {
+    grid-template-columns: 1fr;
+  }
+  .store-trust-bar {
+    grid-template-columns: 1fr;
   }
 }

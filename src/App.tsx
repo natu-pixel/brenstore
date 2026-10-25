@@ -15,7 +15,6 @@ import Checkout, { MyOrders, OrderPage } from './components/Checkout';
 import { safeTelegramUrl } from './lib/telegram';
 import { useCart } from './cart';
 import FloatingLogos from './components/FloatingLogos';
-import HeroAvatar from './components/HeroAvatar';
 import Products from './components/Products';
 import RegionPicker from './components/RegionPicker';
 import ServiceDetail from './components/ServiceDetail';
@@ -121,7 +120,7 @@ function StoreLayout() {
     </div>
   );
 }
-
+
 // Desktop: avatar opens a small menu. Inside the phone navigation panel the items are always listed.
 function AccountMenu({ email, signingOut, onSignOut, onNavigate }: {
   email: string; signingOut: boolean; onSignOut: () => void; onNavigate: () => void;
@@ -183,7 +182,18 @@ function Home() {
           </div>
         </div>
         <div className="hero-visual">
-          <HeroAvatar />
+          <div className="hero-3d-stage">
+            <div className="hero-3d-halo" aria-hidden="true" />
+            <img
+              src="/images/hero-character.jpg"
+              alt="Brenstore character"
+              className="hero-3d-image"
+              width={543}
+              height={815}
+              fetchPriority="high"
+              decoding="async"
+            />
+          </div>
           <FloatingLogos />
         </div>
         <aside className="hero-side">
