@@ -94,41 +94,23 @@ export default function ServiceCard({
 
   return (
     <article className="service-card attractive-card">
-      {/* Top Banner with Badges */}
-      <Link
-        className="service-card-media"
-        to={href}
-        tabIndex={-1}
-        aria-hidden="true"
-        style={{
-          background: `radial-gradient(circle at 75% 25%, ${branding.color_start}66 0%, #0d121f 85%)`,
-        }}
-      >
-        <div className="card-banner-backdrop" aria-hidden="true">
-          <div className="card-mockup-glow" style={{ background: branding.color_start }} />
-        </div>
-
-        {/* Top Badges */}
+      {/* Top Status & Badges Bar (replaces the redundant empty space) */}
+      <div className="card-top-bar">
         <div className="card-top-badges">
           <span className="seller-badge">
             <IconCheck size={12} stroke={3} /> Verified Seller
           </span>
-          <AvailabilityStatus available={available} />
-        </div>
-
-        {/* Center / Top Brand Artwork */}
-        <div className="card-banner-center">
-          <BrandLogo product={{ ...branding, name: group.name }} size={70} />
           {service?.badge && <ServiceBadgePill badge={service.badge} />}
         </div>
-      </Link>
+        <AvailabilityStatus available={available} />
+      </div>
 
       {/* Main Body */}
       <div className="service-card-body">
-        {/* Service Header: Logo avatar + Name + Duration chip (rating removed as not necessary) */}
+        {/* Service Header: Logo avatar + Name + Category + Duration chip */}
         <div className="card-header-row">
           <div className="card-header-brand">
-            <BrandLogo product={{ ...branding, name: group.name }} size={38} />
+            <BrandLogo product={{ ...branding, name: group.name }} size={42} />
             <div className="card-header-titles">
               <h3 className="service-card-name">
                 <Link to={href}>{group.name}</Link>
