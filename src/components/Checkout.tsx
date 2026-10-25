@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { IconArrowLeft, IconBrandTelegram, IconChevronRight } from '@tabler/icons-react';
 import BrandLogo from './BrandLogo';
 import OrderProgress from './OrderProgress';
+import FlyPaymentVerification from './FlyPaymentVerification';
 import { useCart } from '../cart';
 import { useAuth } from '../auth/AuthProvider';
 import { currencySchema, DatabaseError, readResource, runCommand, useCommand, useResource } from '../features/api';
@@ -283,11 +284,23 @@ export function OrderPage() {
       </div>}
       <p>{detail.order.customer_name} · {detail.order.phone}{detail.order.telegram ? ` · ${detail.order.telegram}` : ''}</p>
       {detail.order.status === 'pending' && <>
-        <p className="store-notice">{isTopup
-          ? 'This pending order has not been delivered yet. Contact staff with the reference before paying; the top-up is delivered automatically to the player ID above once staff confirms payment.'
-          : 'This pending order does not reserve seats. Contact staff with the reference before paying; availability is checked when staff confirms payment. Payment and access are not automated.'}</p>
-        <h2>Payment instructions</h2>
-        {instructions.isPending ? <p role="status">Loading instructions…</p> : instructions.isError ? <><p className="auth-error" role="alert">Payment instructions unavailable: {instructions.error.message}</p><button className="auth-switch" onClick={() => void instructions.refetch()}>Retry instructions</button></> : <p className="payment-instructions">{instructions.data.manual_payment_instructions || 'Payment instructions have not been configured. Do not send payment until staff provides verified instructions.'}</p>}
+        {detail.order.currency === 'ETB' ? (
+          <FlyPaymentVerification
+            orderReference={detail.order.reference}
+            customerName={detail.order.customer_name}
+            productSummary={detail.items.map((item) => `${item.qty}× ${item.name}`).join(', ')}
+            amountEtb={detail.order.total_minor / 100}
+            onPaymentVerified={() => void order.refetch()}
+          />
+        ) : (
+          <>
+            <p className="store-notice">{isTopup
+              ? 'This pending order has not been delivered yet. Contact staff with the reference before paying; the top-up is delivered automatically to the player ID above once staff confirms payment.'
+              : 'This pending order does not reserve seats. Contact staff with the reference before paying; availability is checked when staff confirms payment. Payment and access are not automated.'}</p>
+            <h2>Payment instructions</h2>
+            {instructions.isPending ? <p role="status">Loading instructions…</p> : instructions.isError ? <><p className="auth-error" role="alert">Payment instructions unavailable: {instructions.error.message}</p><button className="auth-switch" onClick={() => void instructions.refetch()}>Retry instructions</button></> : <p className="payment-instructions">{instructions.data.manual_payment_instructions || 'Payment instructions have not been configured. Do not send payment until staff provides verified instructions.'}</p>}
+          </>
+        )}
       </>}
       {detail.payment && <p>Confirmed payment: {formatMoney(detail.payment.amount_minor, detail.payment.currency)} · Reference {detail.payment.reference}</p>}
       {telegram && <a className="btn auth-submit" href={telegram} target="_blank" rel="noreferrer"><IconBrandTelegram size={20} /> Contact staff with this reference</a>}

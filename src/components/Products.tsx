@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { IconFlame, IconLayoutGrid, IconSearch, IconShoppingCart, IconSparkles, IconX } from '@tabler/icons-react';
+import { IconSearch, IconShoppingCart, IconSparkles, IconX } from '@tabler/icons-react';
+import { Flame, LayoutGrid } from 'lucide-react';
 import ServiceCard from './ServiceCard';
 import { categoryIcon } from '../data/category-icons';
 import { groupPlans, optionSummary } from '../data/plan-options';
@@ -38,11 +39,11 @@ export default function Products({ page = false }: { page?: boolean }) {
           {query && <button className="search-clear" onClick={() => setQuery('')} aria-label="Clear search"><IconX size={16} /></button>}
         </div>
         <div className="cat-filter" role="group" aria-label="Product categories">
-          <button aria-pressed={active === 'all'} className={'cat-pill' + (active === 'all' ? ' is-active' : '')} onClick={() => setActive('all')}><IconLayoutGrid size={18} aria-hidden="true" /><span>All</span></button>
-          <button aria-pressed={active === 'featured'} className={'cat-pill pill-hot' + (active === 'featured' ? ' is-active' : '')} onClick={() => setActive('featured')}><IconFlame size={18} aria-hidden="true" /><span>Featured</span></button>
+          <button aria-pressed={active === 'all'} className={'cat-pill' + (active === 'all' ? ' is-active' : '')} onClick={() => setActive('all')}><LayoutGrid size={18} strokeWidth={1.75} aria-hidden="true" /><span>All</span></button>
+          <button aria-pressed={active === 'featured'} className={'cat-pill pill-hot' + (active === 'featured' ? ' is-active' : '')} onClick={() => setActive('featured')}><Flame size={18} strokeWidth={1.75} aria-hidden="true" /><span>Featured</span></button>
           {(categories.data ?? []).filter((category) => !category.archived).map((category) => {
             const Icon = categoryIcon(category);
-            return <button key={category.id} aria-pressed={active === category.id} className={'cat-pill' + (active === category.id ? ' is-active' : '')} onClick={() => setActive(category.id)}><Icon size={18} aria-hidden="true" /><span>{category.name}</span></button>;
+            return <button key={category.id} aria-pressed={active === category.id} className={'cat-pill' + (active === category.id ? ' is-active' : '')} onClick={() => setActive(category.id)}><Icon size={18} strokeWidth={1.75} aria-hidden="true" /><span>{category.name}</span></button>;
           })}
         </div>
         {categories.isError && <p className="store-notice">Categories could not be loaded. You can still browse all plans. <button className="auth-switch" onClick={() => void categories.refetch()}>Retry categories</button></p>}

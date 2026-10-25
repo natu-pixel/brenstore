@@ -1,0 +1,68 @@
+declare module '@tabler/icons-react' {
+  import type { FC, SVGProps } from 'react';
+  export interface IconProps extends SVGProps<SVGSVGElement> {
+    size?: number | string;
+    stroke?: number | string;
+    color?: string;
+    className?: string;
+  }
+  export type Icon = FC<IconProps>;
+  export type TablerIcon = Icon;
+  export type IconNode = any;
+  const anyIcon: Icon;
+  export default anyIcon;
+
+  export const IconActivity: Icon;
+  export const IconAlertCircle: Icon;
+  export const IconAlertTriangle: Icon;
+  export const IconArrowLeft: Icon;
+  export const IconArrowRight: Icon;
+  export const IconArrowUpRight: Icon;
+  export const IconBolt: Icon;
+  export const IconBox: Icon;
+  export const IconBrandTelegram: Icon;
+  export const IconBuildingBank: Icon;
+  export const IconCheck: Icon;
+  export const IconChecks: Icon;
+  export const IconChevronDown: Icon;
+  export const IconChevronRight: Icon;
+  export const IconChevronsRight: Icon;
+  export const IconClock: Icon;
+  export const IconCopy: Icon;
+  export const IconCreditCard: Icon;
+  export const IconCrown: Icon;
+  export const IconDeviceMobile: Icon;
+  export const IconExternalLink: Icon;
+  export const IconEye: Icon;
+  export const IconEyeOff: Icon;
+  export const IconFlame: Icon;
+  export const IconHeadset: Icon;
+  export const IconHome: Icon;
+  export const IconInbox: Icon;
+  export const IconLayoutDashboard: Icon;
+  export const IconLayoutGrid: Icon;
+  export const IconListCheck: Icon;
+  export const IconLogout: Icon;
+  export const IconMenu2: Icon;
+  export const IconMessageCircle: Icon;
+  export const IconMinus: Icon;
+  export const IconPackage: Icon;
+  export const IconPlus: Icon;
+  export const IconReceipt: Icon;
+  export const IconRefresh: Icon;
+  export const IconSearch: Icon;
+  export const IconSend: Icon;
+  export const IconSettings: Icon;
+  export const IconShieldCheck: Icon;
+  export const IconShoppingBag: Icon;
+  export const IconShoppingCart: Icon;
+  export const IconSparkles: Icon;
+  export const IconStack2: Icon;
+  export const IconStar: Icon;
+  export const IconTag: Icon;
+  export const IconTrash: Icon;
+  export const IconUser: Icon;
+  export const IconUsers: Icon;
+  export const IconUsersGroup: Icon;
+  export const IconX: Icon;
+}

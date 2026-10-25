@@ -1,18 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { IconAppWindow, IconDeviceGamepad2, IconLayoutGrid, IconMovie, IconMusic, IconRobot, IconSchool } from '@tabler/icons-react';
+import { AppWindow, Bot, Clapperboard, Gamepad2, GraduationCap, LayoutGrid, Music } from 'lucide-react';
 import { categoryIcon } from './category-icons';
 
 describe('category icons', () => {
   it.each([
-    ['Streaming', IconMovie], ['SVOD', IconMovie], ['Music', IconMusic], ['AI Tools', IconRobot],
-    ['Software', IconAppWindow], ['Gaming', IconDeviceGamepad2], ['Game top-ups', IconDeviceGamepad2], ['EDUCATION', IconSchool],
+    ['Streaming', Clapperboard], ['SVOD', Clapperboard], ['Music', Music], ['AI Tools', Bot],
+    ['Software', AppWindow], ['Gaming', Gamepad2], ['Game top-ups', Gamepad2], ['EDUCATION', GraduationCap],
   ])('maps %s', (name, icon) => {
     expect(categoryIcon({ name })).toBe(icon);
   });
 
   it('matches by slug and falls back to a neutral grid icon', () => {
-    expect(categoryIcon({ name: 'Video', slug: 'streaming' })).toBe(IconMovie);
-    expect(categoryIcon({ name: 'Email', slug: 'email' })).toBe(IconLayoutGrid);
-    expect(categoryIcon({ name: 'Smart home' })).toBe(IconLayoutGrid);
+    expect(categoryIcon({ name: 'Video', slug: 'streaming' })).toBe(Clapperboard);
+    expect(categoryIcon({ name: 'Email', slug: 'email' })).toBe(LayoutGrid);
+    expect(categoryIcon({ name: 'Smart home' })).toBe(LayoutGrid);
   });
 });
