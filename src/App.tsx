@@ -14,7 +14,6 @@ import CartDrawer from './components/CartDrawer';
 import Checkout, { MyOrders, OrderPage } from './components/Checkout';
 import { safeTelegramUrl } from './lib/telegram';
 import { useCart } from './cart';
-import FloatingLogos from './components/FloatingLogos';
 import Products from './components/Products';
 import RegionPicker from './components/RegionPicker';
 import ServiceDetail from './components/ServiceDetail';
@@ -183,18 +182,16 @@ function Home() {
         </div>
         <div className="hero-visual">
           <div className="hero-3d-stage">
-            <div className="hero-3d-halo" aria-hidden="true" />
             <img
-              src="/images/hero-character.jpg"
-              alt="Brenstore character"
+              src="/images/hero-character.png"
+              alt="Brenstore 3D character with subscription services"
               className="hero-3d-image"
-              width={543}
-              height={815}
+              width={1020}
+              height={866}
               fetchPriority="high"
               decoding="async"
             />
           </div>
-          <FloatingLogos />
         </div>
         <aside className="hero-side">
           <div className="side-item"><h3><IconBrandTelegram size={20} className="side-icon" /> Personal Support</h3><p>Share your saved order reference</p></div>
