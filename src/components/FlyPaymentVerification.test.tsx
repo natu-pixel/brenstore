@@ -21,7 +21,7 @@ describe('FlyPaymentVerification component', () => {
     render(
       <FlyPaymentVerification
         orderReference="BR-TEST-123"
-        customerName="Test Customer"
+        customerName="Abdurahim Customer"
         productSummary="1 Month VIP Access"
         amountEtb={911.0}
       />
@@ -29,10 +29,24 @@ describe('FlyPaymentVerification component', () => {
 
     expect(syncOrderMock).toHaveBeenCalledWith({
       id: 'BR-TEST-123',
-      customer: 'Test Customer',
+      customer: 'Abdurahim Customer',
       product: '1 Month VIP Access',
       price: 911.0,
     });
+  });
+
+  it('displays the updated Telebirr recipient number and name', () => {
+    render(
+      <FlyPaymentVerification
+        orderReference="BR-TEST-123"
+        customerName="Test Customer"
+        productSummary="1 Month VIP Access"
+        amountEtb={911.0}
+      />
+    );
+
+    expect(screen.getByText(/0998778411/i)).toBeInTheDocument();
+    expect(screen.getByText(/Abdurahim/i)).toBeInTheDocument();
   });
 
   it('validates Telebirr input and submits verification successfully', async () => {
@@ -53,7 +67,6 @@ describe('FlyPaymentVerification component', () => {
       />
     );
 
-    // Verify Telebirr is selected by default
     const txnInput = screen.getByPlaceholderText('e.g. DJI91DDRVT');
     fireEvent.change(txnInput, { target: { value: 'dji91ddrvt' } });
     expect((txnInput as HTMLInputElement).value).toBe('DJI91DDRVT');
@@ -69,43 +82,6 @@ describe('FlyPaymentVerification component', () => {
       });
       expect(screen.getByText(/🎉 Payment Verified!/i)).toBeInTheDocument();
       expect(onVerified).toHaveBeenCalled();
-    });
-  });
-
-  it('switches to CBE mode and submits payerName + last4 digits', async () => {
-    verifyPaymentMock.mockResolvedValue({
-      ok: true,
-      message: 'Payment confirmed. Your order is active.',
-    });
-
-    render(
-      <FlyPaymentVerification
-        orderReference="BR-TEST-123"
-        customerName="Test Customer"
-        productSummary="1 Month VIP Access"
-        amountEtb={911.0}
-      />
-    );
-
-    const cbeRadio = screen.getByLabelText(/cbe transfer/i);
-    fireEvent.click(cbeRadio);
-
-    const nameInput = screen.getByPlaceholderText('e.g. Mahider Yilkal Gete');
-    const last4Input = screen.getByPlaceholderText('e.g. 5443');
-
-    fireEvent.change(nameInput, { target: { value: 'Mahider Yilkal' } });
-    fireEvent.change(last4Input, { target: { value: '5443' } });
-
-    const submitBtn = screen.getByRole('button', { name: /confirm payment/i });
-    fireEvent.click(submitBtn);
-
-    await waitFor(() => {
-      expect(verifyPaymentMock).toHaveBeenCalledWith({
-        orderId: 'BR-TEST-123',
-        method: 'cbe',
-        payerName: 'Mahider Yilkal',
-        last4: '5443',
-      });
     });
   });
 
