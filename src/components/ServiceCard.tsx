@@ -118,17 +118,17 @@ export default function ServiceCard({
 
         {/* Center / Top Brand Artwork */}
         <div className="card-banner-center">
-          <BrandLogo product={{ ...branding, name: group.name }} size={84} />
+          <BrandLogo product={{ ...branding, name: group.name }} size={70} />
           {service?.badge && <ServiceBadgePill badge={service.badge} />}
         </div>
       </Link>
 
       {/* Main Body */}
       <div className="service-card-body">
-        {/* Service Header: Logo avatar + Name + Rating */}
+        {/* Service Header: Logo avatar + Name + Duration chip (rating removed as not necessary) */}
         <div className="card-header-row">
           <div className="card-header-brand">
-            <BrandLogo product={{ ...branding, name: group.name }} size={44} />
+            <BrandLogo product={{ ...branding, name: group.name }} size={38} />
             <div className="card-header-titles">
               <h3 className="service-card-name">
                 <Link to={href}>{group.name}</Link>
@@ -140,17 +140,8 @@ export default function ServiceCard({
             </div>
           </div>
 
-          <div className="card-rating-chip" title="Customer Rating">
-            <span className="rating-star">★ 4.8</span>
-            <small className="rating-count">(1.4K)</small>
-            <IconChevronRight size={13} className="rating-chevron" />
-          </div>
-        </div>
-
-        {/* Plan Option pill & Summary */}
-        <div className="card-meta-pills">
           <span className="card-duration-chip">
-            <IconClock size={13} /> {termBadge}
+            <IconClock size={12} /> {termBadge}
           </span>
         </div>
 
@@ -180,12 +171,12 @@ export default function ServiceCard({
           </div>
 
           <div className="card-trust-pill" title="100% Legit & Protected">
-            <IconShieldCheck size={18} className="trust-shield-icon" />
+            <IconShieldCheck size={15} className="trust-shield-icon" />
             <div className="trust-pill-text">
               <strong>Safe & Secure</strong>
               <small>100% legit</small>
             </div>
-            <IconChevronRight size={14} className="trust-chevron" />
+            <IconChevronRight size={12} className="trust-chevron" />
           </div>
         </div>
 
@@ -198,9 +189,9 @@ export default function ServiceCard({
             aria-label={`Order ${group.name}`}
             onClick={() => setOrdering(true)}
           >
-            <IconShoppingCart size={18} aria-hidden="true" />
+            <IconShoppingCart size={16} aria-hidden="true" />
             Order Now
-            <IconChevronRight size={17} className="btn-chevron" />
+            <IconChevronRight size={15} className="btn-chevron" />
           </button>
         </div>
       </div>
