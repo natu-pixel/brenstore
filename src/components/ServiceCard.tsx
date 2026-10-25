@@ -94,23 +94,43 @@ export default function ServiceCard({
 
   return (
     <article className="service-card attractive-card">
-      {/* Top Status & Badges Bar (replaces the redundant empty space) */}
-      <div className="card-top-bar">
-        <div className="card-top-badges">
-          <span className="seller-badge">
-            <IconCheck size={12} stroke={3} /> Verified Seller
-          </span>
-          {service?.badge && <ServiceBadgePill badge={service.badge} />}
+      {/* Top Banner with Badges and Prominent Logo (compact & tight, no wasted space) */}
+      <Link
+        className="service-card-media"
+        to={href}
+        tabIndex={-1}
+        aria-hidden="true"
+        style={{
+          background: `radial-gradient(circle at 75% 25%, ${branding.color_start}55 0%, #0d121f 85%)`,
+        }}
+      >
+        <div className="card-banner-backdrop" aria-hidden="true">
+          <div className="card-mockup-glow" style={{ background: branding.color_start }} />
         </div>
-        <AvailabilityStatus available={available} />
-      </div>
+
+        {/* Top Badges */}
+        <div className="card-top-badges">
+          <div className="card-top-badges-left">
+            <span className="seller-badge">
+              <IconCheck size={11} stroke={3} /> Verified Seller
+            </span>
+            {service?.badge && <ServiceBadgePill badge={service.badge} />}
+          </div>
+          <AvailabilityStatus available={available} />
+        </div>
+
+        {/* Center Prominent Brand Logo */}
+        <div className="card-banner-center">
+          <BrandLogo product={{ ...branding, name: group.name }} size={58} />
+        </div>
+      </Link>
 
       {/* Main Body */}
       <div className="service-card-body">
         {/* Service Header: Logo avatar + Name + Category + Duration chip */}
         <div className="card-header-row">
           <div className="card-header-brand">
-            <BrandLogo product={{ ...branding, name: group.name }} size={42} />
+            <BrandLogo product={{ ...branding, name: group.name }} size={36} />
             <div className="card-header-titles">
               <h3 className="service-card-name">
                 <Link to={href}>{group.name}</Link>
