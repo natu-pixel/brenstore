@@ -282,7 +282,6 @@ export function OrderPage() {
         </ul>
         {detail.deliveries.some((delivery) => delivery.status === 'failed') && <p className="store-notice">A delivery could not be completed. Contact staff with your order reference to arrange the next step. A failed delivery does not automatically refund your payment.</p>}
       </div>}
-      <p>{detail.order.customer_name} · {detail.order.phone}{detail.order.telegram ? ` · ${detail.order.telegram}` : ''}</p>
       {detail.order.status === 'pending' && <>
         {detail.order.currency === 'ETB' ? (
           <FlyPaymentVerification
