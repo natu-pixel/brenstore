@@ -2005,18 +2005,17 @@ dialog.cart-drawer::backdrop { background: rgb(15 23 42 / 40%); }
   box-shadow: 0 20px 35px -5px rgba(37, 99, 235, 0.12), 0 10px 15px -5px rgba(15, 23, 42, 0.04);
 }
 
-/* Top Banner - Compact, balanced with prominent logo (no wasted space) */
+/* Top Banner - Compact, balanced with prominent logo and ample bottom spacing */
 .attractive-card .service-card-media {
   position: relative;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
-  padding: 10px 14px 12px;
-  gap: 8px;
+  justify-content: space-between;
+  padding: 12px 14px 20px;
   aspect-ratio: auto;
-  height: 112px;
-  min-height: 112px;
-  max-height: 112px;
+  height: 136px;
+  min-height: 136px;
+  max-height: 136px;
   border-top-left-radius: 19px;
   border-top-right-radius: 19px;
   overflow: hidden;

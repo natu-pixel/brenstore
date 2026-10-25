@@ -121,7 +121,7 @@ export default function ServiceCard({
 
         {/* Center Prominent Brand Logo */}
         <div className="card-banner-center">
-          <BrandLogo product={{ ...branding, name: group.name }} size={58} />
+          <BrandLogo product={{ ...branding, name: group.name }} size={56} />
         </div>
       </Link>
 
